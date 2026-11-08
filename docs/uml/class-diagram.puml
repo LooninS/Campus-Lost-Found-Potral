@@ -1,0 +1,67 @@
+@startuml
+class User {
+  id: UUID
+  collegeEmail: string
+  fullName: string
+  role: Role
+}
+
+class Report {
+  id: UUID
+  reportType: LOST | FOUND
+  title: string
+  category: string
+  status: ReportStatus
+  finalDescription: text
+  eventDate: date
+}
+
+class Image {
+  id: UUID
+  storageKey: string
+  thumbnailKey: string
+  checksum: string
+}
+
+class AiDescription {
+  modelName: string
+  shortDescription: text
+  detailedDescription: text
+  confidence: decimal
+  processingStatus: string
+}
+
+class Tag {
+  value: string
+  source: string
+}
+
+class Match {
+  keywordScore: decimal
+  semanticScore: decimal
+  combinedScore: decimal
+  status: string
+}
+
+class Claim {
+  message: text
+  verificationStatus: string
+}
+
+class Notification {
+  message: text
+  isRead: boolean
+}
+
+User "1" -- "many" Report : creates
+Report "1" -- "many" Image
+Report "1" -- "many" Tag
+Report "1" -- "many" AiDescription
+Report "1" -- "many" Claim
+Report "1" -- "many" Notification
+Report "1" -- "many" Match
+User "1" -- "many" Claim : submits
+User "1" -- "many" Notification : receives
+Match "1" -- "1" Report : lost
+Match "1" -- "1" Report : found
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+actor Reporter
+participant Frontend
+participant API
+participant ImageValidator
+participant Storage
+participant SarvamService
+participant Sarvam
+database Database
+
+Reporter -> Frontend: Enter report details and upload image
+Frontend -> API: POST /reports (multipart)
+API -> ImageValidator: Validate type, size, dimensions
+ImageValidator --> API: Prepared image
+API -> Storage: Store original and thumbnail
+Storage --> API: Storage references
+API -> Database: Create Draft report
+API -> SarvamService: generateItemDescription(image)
+SarvamService -> Sarvam: Send base64 data URI and prompt
+Sarvam --> SarvamService: Structured JSON or error
+SarvamService --> API: Validated draft or failure
+API -> Database: Store AI metadata/status
+API --> Frontend: Editable AI draft
+Reporter -> Frontend: Review and edit description
+Frontend -> API: Submit approved report
+API -> Database: Set status Active and index report
+API --> Reporter: Report confirmation
+@enduml

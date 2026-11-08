@@ -1,0 +1,18 @@
+@startuml
+[*] --> Draft
+Draft --> Active : Reporter submits
+Draft --> Removed : Admin removes
+Active --> Matched : Potential match found
+Active --> Expired : Expiry policy
+Active --> Removed : Admin removes
+Matched --> Claimed : Claim submitted/accepted
+Matched --> Active : Match dismissed
+Matched --> Removed : Admin removes
+Claimed --> Resolved : Item handed over
+Claimed --> Active : Claim rejected
+Claimed --> Removed : Admin removes
+Expired --> Active : Reporter reopens
+Expired --> Removed : Admin removes
+Resolved --> [*]
+Removed --> [*]
+@enduml

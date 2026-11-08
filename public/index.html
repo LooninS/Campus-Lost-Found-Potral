@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campus Lost & Found</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Campus recovery network</p>
+        <h1>Campus Lost &amp; Found</h1>
+      </div>
+      <div id="auth-actions"></div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <div>
+          <span class="pill">Sarvam AI-assisted discovery</span>
+          <h2>Find what matters, faster.</h2>
+          <p>Report a lost or found item with a photo, then search descriptions, tags, categories, and campus locations.</p>
+        </div>
+        <button class="primary" data-view="report">Report an item</button>
+      </section>
+
+      <div id="message" class="message" role="status"></div>
+
+      <section id="auth-view" class="panel auth-grid">
+        <form id="login-form">
+          <h2>Sign in</h2>
+          <label>Email<input name="email" type="email" required placeholder="you@college.edu" /></label>
+          <label>Password<input name="password" type="password" required minlength="8" /></label>
+          <button class="primary" type="submit">Sign in</button>
+        </form>
+        <form id="register-form">
+          <h2>Create account</h2>
+          <label>Full name<input name="fullName" required /></label>
+          <label>College email<input name="email" type="email" required placeholder="you@college.edu" /></label>
+          <label>Password<input name="password" type="password" required minlength="8" /></label>
+          <button class="secondary" type="submit">Register</button>
+        </form>
+      </section>
+
+      <section id="app-view" hidden>
+        <nav class="tabs">
+          <button class="tab active" data-view="search">Search items</button>
+          <button class="tab" data-view="report">Report item</button>
+          <button class="tab" data-view="mine">My reports</button>
+        </nav>
+
+        <section id="search-view" class="view">
+          <div class="section-heading">
+            <div><p class="eyebrow">Discovery</p><h2>Search reports</h2></div>
+            <span id="result-count" class="muted"></span>
+          </div>
+          <form id="search-form" class="searchbar">
+            <input name="q" placeholder="Search: blue bottle, wallet, library..." />
+            <select name="type"><option value="">All types</option><option value="LOST">Lost</option><option value="FOUND">Found</option></select>
+            <input name="category" placeholder="Category" />
+            <button class="primary">Search</button>
+          </form>
+          <div id="results" class="cards"></div>
+        </section>
+
+        <section id="report-view" class="view" hidden>
+          <div class="section-heading"><div><p class="eyebrow">Create</p><h2>Report an item</h2></div></div>
+          <form id="report-form" class="report-form">
+            <div class="form-grid">
+              <label>Report type<select name="reportType"><option value="LOST">I lost an item</option><option value="FOUND">I found an item</option></select></label>
+              <label>Title<input name="title" required placeholder="Blue water bottle" /></label>
+              <label>Category<input name="category" required placeholder="Water bottle" /></label>
+              <label>Colour<input name="colour" placeholder="Blue" /></label>
+              <label>Location<input name="locationText" required placeholder="Library entrance" /></label>
+              <label>Date<input name="eventDate" type="date" required /></label>
+              <label>Approximate time<input name="approximateTime" placeholder="14:30" /></label>
+              <label>Custody location<input name="custodyLocation" placeholder="Security office (found items)" /></label>
+            </div>
+            <label>Description<textarea name="description" rows="4" placeholder="Add details you know. Sarvam AI can assist when configured."></textarea></label>
+            <label>Search tags<input name="tags" placeholder="blue, metal, black cap" /></label>
+            <label>Photo<input name="image" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required /></label>
+            <button class="primary" type="submit">Submit report</button>
+          </form>
+        </section>
+
+        <section id="mine-view" class="view" hidden>
+          <div class="section-heading"><div><p class="eyebrow">Account</p><h2>My reports</h2></div></div>
+          <div id="mine-results" class="cards"></div>
+        </section>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

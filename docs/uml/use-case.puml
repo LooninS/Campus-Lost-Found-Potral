@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+actor User
+actor Administrator
+actor "Sarvam AI" as Sarvam
+
+rectangle "Campus Lost & Found" {
+  usecase "Register / Login" as UC1
+  usecase "Create Lost Report" as UC2
+  usecase "Create Found Report" as UC3
+  usecase "Review AI Description" as UC4
+  usecase "Search Reports" as UC5
+  usecase "Submit Claim" as UC6
+  usecase "Receive Match Notification" as UC7
+  usecase "Update Report Status" as UC8
+  usecase "Moderate Reports" as UC9
+  usecase "Manage Users" as UC10
+  usecase "Generate Image Description" as UC11
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+UC2 ..> UC4 : includes
+UC3 ..> UC4 : includes
+UC4 ..> UC11 : uses
+Sarvam --> UC11
+Administrator --> UC9
+Administrator --> UC10
+Administrator --> UC6
+@enduml

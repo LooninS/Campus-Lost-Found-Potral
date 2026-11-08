@@ -1,0 +1,17 @@
+@startuml
+actor Searcher
+participant Frontend
+participant API
+participant SearchService
+database Database
+
+Searcher -> Frontend: Enter query and filters
+Frontend -> API: GET /reports?q=...&filters
+API -> SearchService: Search approved reports
+SearchService -> Database: Apply filters and text search
+Database --> SearchService: Candidate reports
+SearchService -> SearchService: Calculate relevance/similarity
+SearchService --> API: Ranked safe result DTOs
+API --> Frontend: Result cards and scores
+Frontend --> Searcher: Display matching reports
+@enduml

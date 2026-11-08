@@ -1,0 +1,351 @@
+require('dotenv').config();
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const express = require('express');
+const multer = require('multer');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { z } = require('zod');
+const db = require('./db');
+const sarvamService = require('./services/sarvamService');
+const { requireAuth, requireAdmin } = require('./middleware/auth');
+
+const app = express();
+const port = Number(process.env.PORT || 3000);
+const jwtSecret = process.env.JWT_SECRET || 'development-secret';
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/campus-lost-found-uploads' : 'uploads'));
+fs.mkdirSync(uploadDir, { recursive: true });
+
+app.use(express.json());
+app.use(express.static(path.resolve('public')));
+
+const upload = multer({
+  dest: uploadDir,
+  limits: { fileSize: Number(process.env.MAX_UPLOAD_MB || 8) * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!['image/jpeg', 'image/png'].includes(file.mimetype)) {
+      return cb(new Error('Only JPG, JPEG, and PNG images are supported.'));
+    }
+    cb(null, true);
+  }
+});
+
+const reportSchema = z.object({
+  reportType: z.enum(['LOST', 'FOUND']),
+  title: z.string().trim().min(2).max(120),
+  category: z.string().trim().min(2).max(60),
+  description: z.string().trim().max(2000).optional().default(''),
+  colour: z.string().trim().max(80).optional().default(''),
+  locationText: z.string().trim().min(2).max(160),
+  eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  approximateTime: z.string().trim().max(20).optional().default(''),
+  custodyLocation: z.string().trim().max(160).optional().default(''),
+  contactPreference: z.enum(['IN_APP', 'EMAIL', 'ADMIN_MEDIATED']).default('IN_APP'),
+  tags: z.string().trim().max(500).optional().default('')
+});
+
+function now() {
+  return new Date().toISOString();
+}
+
+function transaction(callback) {
+  db.exec('BEGIN');
+  try {
+    callback();
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+function publicReport(row) {
+  return {
+    id: row.id,
+    reportType: row.report_type,
+    title: row.title,
+    category: row.category,
+    description: row.description,
+    aiDescription: row.ai_description,
+    colour: row.colour,
+    locationText: row.location_text,
+    eventDate: row.event_date,
+    approximateTime: row.approximate_time,
+    custodyLocation: row.custody_location,
+    status: row.status,
+    imageUrl: row.image_path ? `/uploads/${path.basename(row.image_path)}` : null,
+    aiStatus: row.ai_status,
+    aiConfidence: row.ai_confidence,
+    reporterName: row.reporter_name,
+    tags: row.tags ? row.tags.split(',').filter(Boolean) : [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function signUser(user) {
+  return jwt.sign({ id: user.id, role: user.role, email: user.college_email }, jwtSecret, { expiresIn: '2h' });
+}
+
+function adminEmails() {
+  return new Set(String(process.env.ADMIN_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean));
+}
+
+function createNotification(userId, reportId, message) {
+  db.prepare('INSERT INTO notifications (id, user_id, report_id, message, created_at) VALUES (?, ?, ?, ?, ?)')
+    .run(crypto.randomUUID(), userId, reportId, message, now());
+}
+
+function audit(actorId, action, entityType, entityId, metadata = {}) {
+  db.prepare('INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(actorId, action, entityType, entityId, JSON.stringify(metadata), now());
+}
+
+app.post('/api/v1/auth/register', async (req, res) => {
+  const parsed = z.object({
+    fullName: z.string().trim().min(2).max(100),
+    email: z.string().email(),
+    password: z.string().min(8).max(100)
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter a valid name, college email, and password of at least 8 characters.' });
+
+  const domain = process.env.COLLEGE_EMAIL_DOMAIN;
+  if (domain && !parsed.data.email.toLowerCase().endsWith(`@${domain.toLowerCase()}`)) {
+    return res.status(400).json({ error: `Use your approved @${domain} college email.` });
+  }
+
+  try {
+    const user = {
+      id: crypto.randomUUID(),
+      email: parsed.data.email.toLowerCase(),
+      fullName: parsed.data.fullName,
+      passwordHash: await bcrypt.hash(parsed.data.password, 12),
+      role: adminEmails().has(parsed.data.email.toLowerCase()) ? 'ADMIN' : 'USER'
+    };
+    db.prepare('INSERT INTO users (id, college_email, password_hash, full_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(user.id, user.email, user.passwordHash, user.fullName, user.role, now());
+    return res.status(201).json({ token: signUser({ id: user.id, role: user.role, college_email: user.email }), user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role } });
+  } catch (error) {
+    if (String(error.message).includes('UNIQUE')) return res.status(409).json({ error: 'An account with this email already exists.' });
+    throw error;
+  }
+});
+
+app.post('/api/v1/auth/login', async (req, res) => {
+  const parsed = z.object({ email: z.string().email(), password: z.string().min(1) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter a valid email and password.' });
+  const user = db.prepare('SELECT * FROM users WHERE college_email = ? AND is_active = 1').get(parsed.data.email.toLowerCase());
+  if (!user || !(await bcrypt.compare(parsed.data.password, user.password_hash))) {
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+  return res.json({ token: signUser(user), user: { id: user.id, fullName: user.full_name, email: user.college_email, role: user.role } });
+});
+
+app.get('/api/v1/users/me', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT id, college_email, full_name, role FROM users WHERE id = ?').get(req.user.id);
+  res.json({ id: user.id, email: user.college_email, fullName: user.full_name, role: user.role });
+});
+
+app.get('/api/v1/reports', (req, res) => {
+  const query = String(req.query.q || '').trim().toLowerCase();
+  const params = [];
+  const where = [`r.status NOT IN ('REMOVED', 'EXPIRED')`];
+  if (req.query.type && ['LOST', 'FOUND'].includes(req.query.type)) {
+    where.push('r.report_type = ?'); params.push(req.query.type);
+  }
+  if (req.query.category) {
+    where.push('LOWER(r.category) = LOWER(?)'); params.push(req.query.category);
+  }
+  if (req.query.status) {
+    where.push('r.status = ?'); params.push(req.query.status);
+  }
+  if (query) {
+    const terms = query.split(/\s+/).filter(Boolean);
+    for (const word of terms) {
+      where.push(`(LOWER(r.title) LIKE ? OR LOWER(r.description) LIKE ? OR LOWER(COALESCE(r.ai_description, '')) LIKE ? OR EXISTS (
+        SELECT 1 FROM tags t WHERE t.report_id = r.id AND LOWER(t.tag) LIKE ?
+      ))`);
+      const term = `%${word}%`; params.push(term, term, term, term);
+    }
+  }
+
+  const rows = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id
+    WHERE ${where.join(' AND ')}
+    ORDER BY r.created_at DESC LIMIT 100
+  `).all(...params);
+  res.json({ results: rows.map(publicReport) });
+});
+
+app.post('/api/v1/reports', requireAuth, upload.single('image'), async (req, res) => {
+  const parsed = reportSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Complete all required report fields correctly.', details: parsed.error.flatten() });
+  if (!req.file) return res.status(400).json({ error: 'An item image is required.' });
+
+  const data = parsed.data;
+  const id = crypto.randomUUID();
+  const timestamp = now();
+  let aiStatus = process.env.AI_ENABLED === 'true' ? 'PENDING' : 'DISABLED';
+  let aiDescription = null;
+  let aiModel = null;
+  let aiConfidence = null;
+
+  try {
+    const ai = await sarvamService.generateItemDescription(req.file);
+    aiStatus = ai.status;
+    aiDescription = ai.short_description || null;
+    aiModel = ai.model || null;
+    aiConfidence = ai.confidence ?? null;
+  } catch {
+    aiStatus = 'FAILED';
+  }
+
+  transaction(() => {
+    db.prepare(`
+      INSERT INTO reports
+      (id, reporter_id, report_type, title, category, description, ai_description, colour,
+       location_text, event_date, approximate_time, custody_location, contact_preference,
+       status, image_path, ai_status, ai_model, ai_confidence, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)
+    `).run(id, req.user.id, data.reportType, data.title, data.category, data.description,
+      aiDescription, data.colour, data.locationText, data.eventDate, data.approximateTime,
+      data.custodyLocation, data.contactPreference, req.file.path, aiStatus, aiModel,
+      aiConfidence, timestamp, timestamp);
+
+    for (const tag of data.tags.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)) {
+      db.prepare('INSERT INTO tags (report_id, tag, source) VALUES (?, ?, ?)')
+        .run(id, tag, 'USER');
+    }
+    db.prepare('INSERT INTO status_history (report_id, previous_status, new_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(id, 'DRAFT', 'ACTIVE', req.user.id, timestamp);
+  });
+  const row = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id WHERE r.id = ?
+  `).get(id);
+  res.status(201).json(publicReport(row));
+});
+
+app.patch('/api/v1/reports/:id/status', requireAuth, (req, res) => {
+  const parsed = z.object({ status: z.enum(['ACTIVE', 'MATCHED', 'CLAIMED', 'RESOLVED', 'EXPIRED', 'REMOVED']) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid status.' });
+  const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+  if (!report) return res.status(404).json({ error: 'Report not found.' });
+  if (report.reporter_id !== req.user.id && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'You may only update your own reports.' });
+
+  const allowed = {
+    DRAFT: ['ACTIVE', 'REMOVED'], ACTIVE: ['MATCHED', 'EXPIRED', 'REMOVED'],
+    MATCHED: ['ACTIVE', 'CLAIMED', 'REMOVED'], CLAIMED: ['RESOLVED', 'ACTIVE', 'REMOVED'],
+    EXPIRED: ['ACTIVE', 'REMOVED'], RESOLVED: [], REMOVED: []
+  };
+  if (!allowed[report.status].includes(parsed.data.status)) return res.status(409).json({ error: `Cannot change status from ${report.status} to ${parsed.data.status}.` });
+
+  const timestamp = now();
+  transaction(() => {
+    db.prepare('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?').run(parsed.data.status, timestamp, report.id);
+    db.prepare('INSERT INTO status_history (report_id, previous_status, new_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(report.id, report.status, parsed.data.status, req.user.id, timestamp);
+    audit(req.user.id, 'STATUS_CHANGED', 'REPORT', report.id, { from: report.status, to: parsed.data.status });
+  });
+  res.json({ id: report.id, status: parsed.data.status });
+});
+
+app.post('/api/v1/reports/:id/claims', requireAuth, (req, res) => {
+  const parsed = z.object({ message: z.string().trim().min(10).max(2000) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Provide a claim message of at least 10 characters.' });
+  const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+  if (!report || report.report_type !== 'FOUND' || ['REMOVED', 'RESOLVED', 'EXPIRED'].includes(report.status)) {
+    return res.status(404).json({ error: 'This report is not available for claims.' });
+  }
+  if (report.reporter_id === req.user.id) return res.status(403).json({ error: 'You cannot claim your own report.' });
+  const claimId = crypto.randomUUID();
+  transaction(() => {
+    db.prepare('INSERT INTO claims (id, report_id, claimant_id, message, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(claimId, report.id, req.user.id, parsed.data.message, now());
+    db.prepare('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?').run('CLAIMED', now(), report.id);
+    createNotification(report.reporter_id, report.id, 'A user submitted a claim for your found-item report. An administrator will review it.');
+    audit(req.user.id, 'CLAIM_SUBMITTED', 'CLAIM', claimId, { reportId: report.id });
+  });
+  res.status(201).json({ id: claimId, status: 'PENDING' });
+});
+
+app.get('/api/v1/notifications', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT id, report_id, message, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 100').all(req.user.id);
+  res.json({ results: rows.map((row) => ({ ...row, isRead: Boolean(row.is_read), createdAt: row.created_at })) });
+});
+
+app.patch('/api/v1/notifications/:id/read', requireAuth, (req, res) => {
+  const result = db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  if (!result.changes) return res.status(404).json({ error: 'Notification not found.' });
+  res.json({ id: req.params.id, isRead: true });
+});
+
+app.get('/api/v1/reports/mine', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id
+    WHERE r.reporter_id = ? ORDER BY r.created_at DESC
+  `).all(req.user.id);
+  res.json({ results: rows.map(publicReport) });
+});
+
+app.get('/api/v1/admin/statistics', requireAuth, requireAdmin, (_req, res) => {
+  const reportCounts = db.prepare('SELECT status, COUNT(*) AS count FROM reports GROUP BY status').all();
+  const categoryCounts = db.prepare('SELECT category, COUNT(*) AS count FROM reports GROUP BY category ORDER BY count DESC LIMIT 20').all();
+  const totals = db.prepare(`
+    SELECT COUNT(*) AS reports,
+      SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END) AS resolved,
+      SUM(CASE WHEN report_type = 'LOST' THEN 1 ELSE 0 END) AS lost,
+      SUM(CASE WHEN report_type = 'FOUND' THEN 1 ELSE 0 END) AS found
+    FROM reports
+  `).get();
+  res.json({ totals, reportCounts, categoryCounts });
+});
+
+app.patch('/api/v1/admin/claims/:id', requireAuth, requireAdmin, (req, res) => {
+  const parsed = z.object({ status: z.enum(['APPROVED', 'REJECTED']) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Claim status must be APPROVED or REJECTED.' });
+  const claim = db.prepare('SELECT * FROM claims WHERE id = ?').get(req.params.id);
+  if (!claim || claim.verification_status !== 'PENDING') return res.status(404).json({ error: 'Pending claim not found.' });
+  const timestamp = now();
+  transaction(() => {
+    db.prepare('UPDATE claims SET verification_status = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?')
+      .run(parsed.data.status, req.user.id, timestamp, claim.id);
+    const nextReportStatus = parsed.data.status === 'APPROVED' ? 'RESOLVED' : 'ACTIVE';
+    db.prepare('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?').run(nextReportStatus, timestamp, claim.report_id);
+    const claimant = db.prepare('SELECT claimant_id FROM claims WHERE id = ?').get(claim.id);
+    createNotification(claimant.claimant_id, claim.report_id, `Your claim was ${parsed.data.status.toLowerCase()}.`);
+    audit(req.user.id, 'CLAIM_REVIEWED', 'CLAIM', claim.id, { status: parsed.data.status });
+  });
+  res.json({ id: claim.id, status: parsed.data.status });
+});
+
+app.patch('/api/v1/admin/reports/:id/remove', requireAuth, requireAdmin, (req, res) => {
+  const report = db.prepare('SELECT id, status FROM reports WHERE id = ?').get(req.params.id);
+  if (!report) return res.status(404).json({ error: 'Report not found.' });
+  transaction(() => {
+    db.prepare('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?').run('REMOVED', now(), report.id);
+    audit(req.user.id, 'REPORT_REMOVED', 'REPORT', report.id);
+  });
+  res.json({ id: report.id, status: 'REMOVED' });
+});
+
+app.use('/uploads', express.static(uploadDir));
+app.use((error, _req, res, _next) => {
+  if (error instanceof multer.MulterError || error.message?.includes('image')) {
+    return res.status(400).json({ error: error.message });
+  }
+  console.error(error);
+  res.status(500).json({ error: 'Unexpected server error.' });
+});
+
+app.get('*', (_req, res) => res.sendFile(path.resolve('public/index.html')));
+
+if (require.main === module) app.listen(port, () => console.log(`Campus Lost & Found running at http://localhost:${port}`));
+
+module.exports = app;

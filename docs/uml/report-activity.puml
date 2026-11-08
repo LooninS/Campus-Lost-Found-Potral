@@ -1,0 +1,29 @@
+@startuml
+start
+:Open report form;
+:Enter item details;
+:Upload image;
+if (Image valid?) then (yes)
+  :Store image and thumbnail;
+  :Create Draft report;
+  :Request Sarvam description;
+  if (AI succeeds?) then (yes)
+    :Validate and redact AI output;
+    :Show editable AI draft;
+  else (no)
+    :Show manual description fallback;
+  endif
+  :Reporter reviews description and tags;
+  if (Required fields complete?) then (yes)
+    :Publish report as Active;
+    :Index report for search;
+    :Run matching;
+    :Create notifications if appropriate;
+  else (no)
+    :Keep report as Draft;
+  endif
+else (no)
+  :Show validation error;
+endif
+stop
+@enduml
