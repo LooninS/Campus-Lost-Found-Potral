@@ -44,6 +44,19 @@ function restoreReportDraft() {
   }
 }
 
+function setReportDefaults() {
+  const form = $('#report-form');
+  if (!form) return;
+  const current = new Date();
+  if (!form.elements.eventDate.value) {
+    const localDate = new Date(current.getTime() - current.getTimezoneOffset() * 60000);
+    form.elements.eventDate.value = localDate.toISOString().slice(0, 10);
+  }
+  if (!form.elements.approximateTime.value) {
+    form.elements.approximateTime.value = `${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`;
+  }
+}
+
 async function api(url, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
@@ -557,4 +570,5 @@ async function restoreSession() {
 
 window.addEventListener('popstate', renderRoute);
 restoreReportDraft();
+setReportDefaults();
 restoreSession();
