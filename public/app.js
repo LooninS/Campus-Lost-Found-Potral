@@ -81,6 +81,10 @@ function escapeHtml(value) {
   }[char]));
 }
 
+function claimReviewButtons(claimId) {
+  return document.querySelectorAll(`[data-id="${claimId}"].claim-review`);
+}
+
 function initials(name = 'Student') {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 }
@@ -345,7 +349,7 @@ async function loadAdmin() {
         </div>`;
     $('#admin-claims').innerHTML = claims.results.length ? claims.results.map((claim) => `
         <div class="admin-row"><div><strong>${escapeHtml(claim.report_title)}</strong><small>${escapeHtml(claim.claimant_name)} · ${escapeHtml(claim.message)}</small></div>
-        <div class="admin-action">${claim.verification_status === 'PENDING' ? `<button class="button secondary-button claim-review" data-id="${claim.id}" data-status="APPROVED">Approve</button><button class="button secondary-button claim-review" data-id="${claim.id}" data-status="REJECTED">Reject</button>` : `<small>${claim.verification_status}</small>`}</div></div>
+        <div class="admin-action">${claim.verification_status === 'PENDING' ? `<button type="button" class="button secondary-button claim-review" data-id="${claim.id}" data-status="APPROVED">Approve</button><button type="button" class="button secondary-button claim-review" data-id="${claim.id}" data-status="REJECTED">Reject</button>` : `<small>${claim.verification_status}</small>`}</div></div>
       `).join('') : '<div class="empty">No claims need review.</div>';
     $('#admin-reports').innerHTML = reports.results.length ? reports.results.slice(0, 12).map((report) => `
         <div class="admin-row"><div><strong>${escapeHtml(report.title)}</strong><small>${report.reportType} · ${report.status} · ${escapeHtml(report.reporterName)}</small></div>
@@ -356,12 +360,19 @@ async function loadAdmin() {
         <button class="button secondary-button user-toggle" data-id="${user.id}" data-active="${user.isActive}">${user.isActive ? 'Deactivate' : 'Activate'}</button></div>
       `).join('') : '<div class="empty">No users yet.</div>';
     document.querySelectorAll('.claim-review').forEach((button) => button.addEventListener('click', async () => {
+      const action = button.dataset.status.toLowerCase();
+        claimReviewButtons(button.dataset.id).forEach((actionButton) => {
+        actionButton.disabled = true;
+      });
       try {
         await api(`/api/v1/admin/claims/${button.dataset.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: button.dataset.status }) });
-        showToast(`Claim ${button.dataset.status.toLowerCase()}.`);
-        loadAdmin();
+        showToast(`Claim ${action}.`);
+        await loadAdmin();
       } catch (error) {
         showToast(error.message);
+          claimReviewButtons(button.dataset.id).forEach((actionButton) => {
+          actionButton.disabled = false;
+        });
       }
     }));
     document.querySelectorAll('.remove-report').forEach((button) => button.addEventListener('click', async () => {
@@ -554,7 +565,7 @@ async function restoreSession() {
     return;
   }
   try {
-    if (!state.user) state.user = await api('/api/v1/users/me');
+    state.user = await api('/api/v1/users/me');
     $('#welcome-name').textContent = state.user.fullName.split(' ')[0];
     renderAuthActions();
     renderRoute();

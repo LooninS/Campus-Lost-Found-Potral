@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 
 process.env.DATA_DIR = `data/test-admin-${process.pid}-${Date.now()}`;
 process.env.COLLEGE_EMAIL_DOMAIN = 'college.edu';
@@ -34,6 +35,23 @@ test('bootstraps and authenticates the configured administrator', async () => {
   });
   assert.equal(login.response.status, 200);
   assert.equal(login.body.user.role, 'ADMIN');
+
+  const currentUser = await request('/api/v1/users/me', {
+    headers: { Authorization: `Bearer ${login.body.token}` }
+  });
+  assert.equal(currentUser.response.status, 200);
+  assert.equal(currentUser.body.role, 'ADMIN');
+
+  const foreignInstanceToken = jwt.sign(
+    { id: 'admin-from-another-instance', role: 'ADMIN', email: 'test-admin@college.edu' },
+    process.env.JWT_SECRET || 'development-secret',
+    { expiresIn: '2h' }
+  );
+  const foreignInstanceUser = await request('/api/v1/users/me', {
+    headers: { Authorization: `Bearer ${foreignInstanceToken}` }
+  });
+  assert.equal(foreignInstanceUser.response.status, 200);
+  assert.equal(foreignInstanceUser.body.role, 'ADMIN');
 
   const statistics = await request('/api/v1/admin/statistics', {
     headers: { Authorization: `Bearer ${login.body.token}` }
