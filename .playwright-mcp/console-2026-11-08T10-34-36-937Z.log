@@ -1,0 +1,13 @@
+[     393ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/:0
+[     393ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/:0
+[   25608ms] [ERROR] Failed to load resource: the server responded with a status of 409 (Conflict) @ http://localhost:3000/api/v1/auth/register:0
+[   82682ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/reports?q=&type=&category=:0
+[   82685ms] TypeError: Failed to fetch
+    at api (http://localhost:3000/app.js:15:26)
+    at loadReports (http://localhost:3000/app.js:110:22)
+    at showView (http://localhost:3000/app.js:75:26)
+    at HTMLButtonElement.<anonymous> (http://localhost:3000/app.js:214:42)
+[   86052ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/auth/register:0
+[   88896ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/auth/register:0
+[   89117ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/auth/register:0
+[   89432ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/auth/register:0

@@ -70,6 +70,19 @@ CREATE TABLE IF NOT EXISTS claims (
   reviewed_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS matches (
+  id TEXT PRIMARY KEY,
+  lost_report_id TEXT NOT NULL REFERENCES reports(id),
+  found_report_id TEXT NOT NULL REFERENCES reports(id),
+  keyword_score REAL NOT NULL,
+  semantic_score REAL NOT NULL DEFAULT 0,
+  combined_score REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'SUGGESTED'
+    CHECK (status IN ('SUGGESTED', 'VIEWED', 'DISMISSED', 'CONFIRMED')),
+  created_at TEXT NOT NULL,
+  UNIQUE (lost_report_id, found_report_id)
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   actor_id TEXT NOT NULL REFERENCES users(id),
@@ -86,3 +99,5 @@ CREATE INDEX IF NOT EXISTS idx_reports_type ON reports(report_type);
 CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag);
 CREATE INDEX IF NOT EXISTS idx_claims_report ON claims(report_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_matches_lost ON matches(lost_report_id);
+CREATE INDEX IF NOT EXISTS idx_matches_found ON matches(found_report_id);

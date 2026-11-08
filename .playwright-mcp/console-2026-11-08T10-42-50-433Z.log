@@ -1,0 +1,8 @@
+[     337ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/:0
+[     338ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/:0
+[   11721ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/v1/reports/mine:0
+[   11722ms] TypeError: Failed to fetch
+    at api (http://localhost:3000/app.js:15:26)
+    at loadMine (http://localhost:3000/app.js:139:22)
+    at showView (http://localhost:3000/app.js:77:24)
+    at HTMLButtonElement.<anonymous> (http://localhost:3000/app.js:279:42)

@@ -6,6 +6,8 @@ Sarvam AI-assisted image-based item discovery system for a college or university
 
 - Responsive browser UI
 - College-email registration and JWT login
+- Explicit `/login`, `/`, `/report`, `/mine`, and `/admin` browser routes
+- Optional seeded demonstration reports via `DEMO_DATA=true`
 - Lost and Found report creation
 - JPG/JPEG/PNG upload validation
 - Editable manual description and search tags
@@ -28,6 +30,8 @@ npm start
 
 Open <http://localhost:3000>.
 
+The public landing page is `/`; authentication is handled at `/login`. Protected links redirect to `/login` and return to the requested page after authentication.
+
 ## Deploy to Vercel
 
 Install and authenticate with the Vercel CLI, then run:
@@ -37,7 +41,7 @@ npx vercel login
 npx vercel --prod
 ```
 
-Set `JWT_SECRET`, `COLLEGE_EMAIL_DOMAIN`, and any Sarvam variables in the Vercel project settings. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment.
+Set `JWT_SECRET`, `COLLEGE_EMAIL_DOMAIN`, `DEMO_DATA`, and any Sarvam variables in the Vercel project settings. `DEMO_DATA=true` seeds six sample lost/found reports on an empty instance. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment because user accounts and uploads are not durable across serverless instances.
 
 The default configuration uses manual-description mode so the application works without an API key. To enable the integration point:
 

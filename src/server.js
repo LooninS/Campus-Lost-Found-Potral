@@ -49,6 +49,63 @@ function now() {
   return new Date().toISOString();
 }
 
+function seedDemoData() {
+  if (process.env.DEMO_DATA !== 'true') return;
+  if (db.prepare('SELECT COUNT(*) AS count FROM reports').get().count > 0) return;
+
+  const demoUserId = 'demo-campus-user';
+  const demoReports = [
+    ['FOUND', 'Navy blue water bottle', 'Water bottle', 'Navy blue', 'Central Library, second floor', -1, 'Security desk', 'blue, bottle, metal, black cap'],
+    ['LOST', 'Black wireless earbuds case', 'Electronics', 'Black', 'SAC canteen', -2, '', 'black, earbuds, case, wireless'],
+    ['FOUND', 'Brown leather wallet', 'Wallet', 'Brown', 'Lecture Hall 3', -3, 'Lost and Found desk', 'brown, leather, wallet, cards'],
+    ['LOST', 'Blue IIITA identity card holder', 'ID card', 'Blue', 'Rajendra Bhawan entrance', -4, '', 'blue, id card, holder, lanyard'],
+    ['FOUND', 'Grey Lenovo laptop charger', 'Charger', 'Grey', 'Computer Centre lab 2', -5, 'Computer Centre reception', 'grey, charger, lenovo, laptop'],
+    ['LOST', 'Green spiral notebook', 'Book', 'Green', 'Academic Block corridor', -6, '', 'green, notebook, spiral, notes']
+  ];
+
+  transaction(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO users
+      (id, college_email, password_hash, full_name, role, created_at)
+      VALUES (?, ?, ?, ?, 'USER', ?)
+    `).run(demoUserId, 'demo@college.edu', bcrypt.hashSync('demo-password', 10), 'Demo Campus User', now());
+
+    for (const [reportType, title, category, colour, location, daysAgo, custodyLocation, tags] of demoReports) {
+      const reportId = crypto.randomUUID();
+      const date = new Date(Date.now() + daysAgo * 86400000).toISOString().slice(0, 10);
+      db.prepare(`
+        INSERT INTO reports
+        (id, reporter_id, report_type, title, category, description, colour, location_text,
+         event_date, approximate_time, custody_location, contact_preference, status,
+         image_path, ai_status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'IN_APP', 'ACTIVE', NULL, 'DISABLED', ?, ?)
+      `).run(
+        reportId,
+        demoUserId,
+        reportType,
+        title,
+        category,
+        `Demonstration ${reportType.toLowerCase()} report for the campus portal.`,
+        colour,
+        location,
+        date,
+        'Around 2:30 PM',
+        custodyLocation,
+        now(),
+        now()
+      );
+      for (const tag of tags.split(', ')) {
+        db.prepare('INSERT INTO tags (report_id, tag, source) VALUES (?, ?, ?)')
+          .run(reportId, tag, 'USER');
+      }
+      db.prepare('INSERT INTO status_history (report_id, previous_status, new_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(reportId, 'DRAFT', 'ACTIVE', demoUserId, now());
+    }
+  });
+}
+
+seedDemoData();
+
 function transaction(callback) {
   db.exec('BEGIN');
   try {
@@ -100,6 +157,65 @@ function createNotification(userId, reportId, message) {
 function audit(actorId, action, entityType, entityId, metadata = {}) {
   db.prepare('INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .run(actorId, action, entityType, entityId, JSON.stringify(metadata), now());
+}
+
+function tokens(value) {
+  return new Set(String(value || '').toLowerCase().split(/[^a-z0-9]+/).filter((token) => token.length > 2));
+}
+
+function reportTerms(report, tags = []) {
+  const tagValues = Array.isArray(tags) ? tags : String(tags || '').split(',');
+  return new Set([
+    ...tokens(report.title),
+    ...tokens(report.category),
+    ...tokens(report.description),
+    ...tokens(report.colour),
+    ...tokens(report.ai_description),
+    ...tagValues.flatMap((tag) => [...tokens(tag)])
+  ]);
+}
+
+function similarityScore(left, right) {
+  const leftTerms = reportTerms(left, left.tags || []);
+  const rightTerms = reportTerms(right, right.tags || []);
+  const shared = [...leftTerms].filter((term) => rightTerms.has(term));
+  const unionSize = new Set([...leftTerms, ...rightTerms]).size;
+  const keywordScore = unionSize ? shared.length / unionSize : 0;
+  const categoryBoost = left.category.toLowerCase() === right.category.toLowerCase() ? 0.25 : 0;
+  const colourBoost = left.colour && right.colour && left.colour.toLowerCase() === right.colour.toLowerCase() ? 0.15 : 0;
+  return Math.min(1, keywordScore + categoryBoost + colourBoost);
+}
+
+function createPotentialMatches(lostReportId) {
+  const lost = db.prepare(`
+    SELECT r.*, (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r WHERE r.id = ?
+  `).get(lostReportId);
+  if (!lost || lost.report_type !== 'LOST') return [];
+
+  const foundReports = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id
+    WHERE r.report_type = 'FOUND' AND r.status IN ('ACTIVE', 'MATCHED')
+  `).all();
+  const matches = [];
+
+  for (const found of foundReports) {
+    const score = similarityScore(lost, found);
+    if (score < 0.25) continue;
+    const matchId = crypto.randomUUID();
+    db.prepare(`
+      INSERT OR IGNORE INTO matches
+      (id, lost_report_id, found_report_id, keyword_score, semantic_score, combined_score, created_at)
+      VALUES (?, ?, ?, ?, 0, ?, ?)
+    `).run(matchId, lost.id, found.id, score, score, now());
+    const stored = db.prepare('SELECT id FROM matches WHERE lost_report_id = ? AND found_report_id = ?').get(lost.id, found.id);
+    createNotification(lost.reporter_id, found.id, `Potential found-item match: "${found.title}" (${Math.round(score * 100)}% relevance).`);
+    createNotification(found.reporter_id, lost.id, `A new lost-item report may match your found item: "${lost.title}".`);
+    matches.push({ id: stored.id, reportId: found.id, title: found.title, score: Number(score.toFixed(2)), reportType: 'FOUND' });
+  }
+  return matches;
 }
 
 app.post('/api/v1/auth/register', async (req, res) => {
@@ -159,6 +275,18 @@ app.get('/api/v1/reports', (req, res) => {
   }
   if (req.query.status) {
     where.push('r.status = ?'); params.push(req.query.status);
+  }
+  if (req.query.location) {
+    where.push('LOWER(r.location_text) LIKE LOWER(?)'); params.push(`%${req.query.location}%`);
+  }
+  if (req.query.colour) {
+    where.push('LOWER(COALESCE(r.colour, \'\')) LIKE LOWER(?)'); params.push(`%${req.query.colour}%`);
+  }
+  if (req.query.dateFrom) {
+    where.push('r.event_date >= ?'); params.push(req.query.dateFrom);
+  }
+  if (req.query.dateTo) {
+    where.push('r.event_date <= ?'); params.push(req.query.dateTo);
   }
   if (query) {
     const terms = query.split(/\s+/).filter(Boolean);
@@ -222,12 +350,21 @@ app.post('/api/v1/reports', requireAuth, upload.single('image'), async (req, res
     db.prepare('INSERT INTO status_history (report_id, previous_status, new_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?)')
       .run(id, 'DRAFT', 'ACTIVE', req.user.id, timestamp);
   });
+  const potentialMatches = data.reportType === 'LOST' ? createPotentialMatches(id) : [];
+  if (potentialMatches.length > 0) {
+    transaction(() => {
+      db.prepare('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?').run('MATCHED', now(), id);
+      db.prepare('INSERT INTO status_history (report_id, previous_status, new_status, changed_by, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(id, 'ACTIVE', 'MATCHED', req.user.id, now());
+      audit(req.user.id, 'MATCHES_CREATED', 'REPORT', id, { count: potentialMatches.length });
+    });
+  }
   const row = db.prepare(`
     SELECT r.*, u.full_name AS reporter_name,
       (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
     FROM reports r JOIN users u ON u.id = r.reporter_id WHERE r.id = ?
   `).get(id);
-  res.status(201).json(publicReport(row));
+  res.status(201).json({ ...publicReport(row), potentialMatches });
 });
 
 app.patch('/api/v1/reports/:id/status', requireAuth, (req, res) => {
@@ -294,6 +431,20 @@ app.get('/api/v1/reports/mine', requireAuth, (req, res) => {
   res.json({ results: rows.map(publicReport) });
 });
 
+app.get('/api/v1/reports/:id', (req, res) => {
+  const row = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id WHERE r.id = ?
+  `).get(req.params.id);
+  if (!row || row.status === 'REMOVED') return res.status(404).json({ error: 'Report not found.' });
+  const history = db.prepare(`
+    SELECT previous_status, new_status, created_at
+    FROM status_history WHERE report_id = ? ORDER BY created_at ASC
+  `).all(req.params.id);
+  res.json({ report: publicReport(row), history });
+});
+
 app.get('/api/v1/admin/statistics', requireAuth, requireAdmin, (_req, res) => {
   const reportCounts = db.prepare('SELECT status, COUNT(*) AS count FROM reports GROUP BY status').all();
   const categoryCounts = db.prepare('SELECT category, COUNT(*) AS count FROM reports GROUP BY category ORDER BY count DESC LIMIT 20').all();
@@ -305,6 +456,43 @@ app.get('/api/v1/admin/statistics', requireAuth, requireAdmin, (_req, res) => {
     FROM reports
   `).get();
   res.json({ totals, reportCounts, categoryCounts });
+});
+
+app.get('/api/v1/admin/reports', requireAuth, requireAdmin, (_req, res) => {
+  const rows = db.prepare(`
+    SELECT r.*, u.full_name AS reporter_name,
+      (SELECT GROUP_CONCAT(tag, ',') FROM tags WHERE report_id = r.id) AS tags
+    FROM reports r JOIN users u ON u.id = r.reporter_id
+    ORDER BY r.created_at DESC LIMIT 200
+  `).all();
+  res.json({ results: rows.map(publicReport) });
+});
+
+app.get('/api/v1/admin/claims', requireAuth, requireAdmin, (_req, res) => {
+  const rows = db.prepare(`
+    SELECT c.*, r.title AS report_title, u.full_name AS claimant_name, u.college_email AS claimant_email
+    FROM claims c JOIN reports r ON r.id = c.report_id JOIN users u ON u.id = c.claimant_id
+    ORDER BY c.created_at DESC LIMIT 100
+  `).all();
+  res.json({ results: rows });
+});
+
+app.get('/api/v1/admin/users', requireAuth, requireAdmin, (_req, res) => {
+  const rows = db.prepare(`
+    SELECT id, college_email, full_name, role, is_active, created_at
+    FROM users ORDER BY created_at DESC LIMIT 200
+  `).all();
+  res.json({ results: rows.map((row) => ({ ...row, isActive: Boolean(row.is_active) })) });
+});
+
+app.patch('/api/v1/admin/users/:id/active', requireAuth, requireAdmin, (req, res) => {
+  const parsed = z.object({ isActive: z.boolean() }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'isActive must be boolean.' });
+  if (req.params.id === req.user.id && !parsed.data.isActive) return res.status(400).json({ error: 'You cannot deactivate your own account.' });
+  const result = db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(parsed.data.isActive ? 1 : 0, req.params.id);
+  if (!result.changes) return res.status(404).json({ error: 'User not found.' });
+  audit(req.user.id, parsed.data.isActive ? 'USER_ACTIVATED' : 'USER_DEACTIVATED', 'USER', req.params.id);
+  res.json({ id: req.params.id, isActive: parsed.data.isActive });
 });
 
 app.patch('/api/v1/admin/claims/:id', requireAuth, requireAdmin, (req, res) => {

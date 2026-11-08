@@ -29,3 +29,16 @@ test('requires authentication and protects claim creation', async () => {
   });
   assert.equal(result.response.status, 401);
 });
+
+test('rejects administrator endpoints for ordinary users', async () => {
+  const registration = await request('/api/v1/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fullName: 'Normal User', email: `normal-${Date.now()}@college.edu`, password: 'password123' })
+  });
+  assert.equal(registration.response.status, 201);
+  const result = await request('/api/v1/admin/statistics', {
+    headers: { Authorization: `Bearer ${registration.body.token}` }
+  });
+  assert.equal(result.response.status, 403);
+});

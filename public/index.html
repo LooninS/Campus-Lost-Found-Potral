@@ -3,91 +3,161 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Campus Lost & Found</title>
+    <title>IIITA Lost &amp; Found</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..700,0..1,0..200&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div id="toast" class="toast" role="status"></div>
     <header class="topbar">
-      <div>
-        <p class="eyebrow">Campus recovery network</p>
-        <h1>Campus Lost &amp; Found</h1>
-      </div>
-      <div id="auth-actions"></div>
+      <a class="brand" href="/" data-route="/">
+        <span class="brand-mark material-symbols-outlined">account_balance</span>
+        <span><strong>IIITA</strong><small>Campus Lost &amp; Found</small></span>
+      </a>
+      <nav id="main-nav" class="main-nav" aria-label="Primary navigation">
+        <button class="nav-link active" data-route="/">Browse items</button>
+        <button class="nav-link" data-route="/report">Report item</button>
+        <button class="nav-link" data-route="/mine">My reports</button>
+        <button id="admin-nav" class="nav-link" data-route="/admin" hidden>Admin desk</button>
+      </nav>
+      <div id="auth-actions" class="top-actions"></div>
     </header>
 
-    <main class="container">
-      <section class="hero">
-        <div>
-          <span class="pill">Sarvam AI-assisted discovery</span>
-          <h2>Find what matters, faster.</h2>
-          <p>Report a lost or found item with a photo, then search descriptions, tags, categories, and campus locations.</p>
+    <main class="shell">
+      <section id="landing-view" class="landing-view" hidden>
+        <div class="landing-hero">
+          <div>
+            <p class="eyebrow">IIITA campus network</p>
+            <h1>Find what matters.<br /><span>Return what you discover.</span></h1>
+            <p class="landing-copy">A trusted campus community for reporting, discovering, and returning lost belongings with Sarvam AI-assisted search.</p>
+            <div class="landing-actions">
+              <button class="button primary-button" data-route="/login">Sign in to campus</button>
+              <button class="button secondary-button" data-route="/login?mode=register">Create account</button>
+            </div>
+          </div>
+          <div class="landing-art"><span class="material-symbols-outlined">travel_explore</span></div>
         </div>
-        <button class="primary" data-view="report">Report an item</button>
       </section>
 
-      <div id="message" class="message" role="status"></div>
-
-      <section id="auth-view" class="panel auth-grid">
-        <form id="login-form">
-          <h2>Sign in</h2>
-          <label>Email<input name="email" type="email" required placeholder="you@college.edu" /></label>
-          <label>Password<input name="password" type="password" required minlength="8" /></label>
-          <button class="primary" type="submit">Sign in</button>
-        </form>
-        <form id="register-form">
-          <h2>Create account</h2>
-          <label>Full name<input name="fullName" required /></label>
-          <label>College email<input name="email" type="email" required placeholder="you@college.edu" /></label>
-          <label>Password<input name="password" type="password" required minlength="8" /></label>
-          <button class="secondary" type="submit">Register</button>
-        </form>
+      <section id="auth-view" class="auth-view">
+        <div class="auth-visual">
+          <div class="auth-orbit orbit-one"></div>
+          <div class="auth-orbit orbit-two"></div>
+          <span class="material-symbols-outlined auth-icon">travel_explore</span>
+          <p class="eyebrow light">IIITA campus network</p>
+          <h1>Small things matter.<br /><span>Let’s find yours.</span></h1>
+          <p class="auth-copy">A trusted campus community for reporting, discovering, and returning lost belongings.</p>
+          <div class="trust-row"><span class="material-symbols-outlined">verified_user</span><span>Private by design</span><span class="material-symbols-outlined">auto_awesome</span><span>Sarvam AI assisted</span></div>
+        </div>
+        <div class="auth-card">
+          <div class="auth-heading"><p class="eyebrow">Welcome back</p><h2>Sign in to your campus</h2><p>Use your approved college email to continue.</p></div>
+          <form id="login-form" class="stack-form">
+            <label>Email address<input name="email" type="email" required placeholder="you@college.edu" /></label>
+            <label>Password<div class="password-field"><input name="password" type="password" required minlength="8" placeholder="Enter your password" /><span class="material-symbols-outlined">lock</span></div></label>
+            <button class="button primary-button" type="submit">Sign in <span class="material-symbols-outlined">arrow_forward</span></button>
+          </form>
+          <div class="form-divider"><span>New to the portal?</span></div>
+          <form id="register-form" class="stack-form compact-form">
+            <label>Full name<input name="fullName" required placeholder="Your name" /></label>
+            <label>College email<input name="email" type="email" required placeholder="you@college.edu" /></label>
+            <label>Create password<input name="password" type="password" required minlength="8" placeholder="At least 8 characters" /></label>
+            <button class="button secondary-button" type="submit">Create account</button>
+          </form>
+        </div>
       </section>
 
       <section id="app-view" hidden>
-        <nav class="tabs">
-          <button class="tab active" data-view="search">Search items</button>
-          <button class="tab" data-view="report">Report item</button>
-          <button class="tab" data-view="mine">My reports</button>
-        </nav>
+        <section class="welcome-banner">
+          <div>
+            <span class="live-pill"><i></i> Campus portal active · Jhalwa campus</span>
+            <h1>Welcome back, <span id="welcome-name">student</span>.</h1>
+            <p>Find what matters, report what you discover, and help reunite belongings across campus.</p>
+          </div>
+          <div class="banner-art"><span class="material-symbols-outlined">school</span></div>
+        </section>
+
+        <section class="stats-row">
+          <div class="stat-card"><span class="stat-icon blue material-symbols-outlined">inventory_2</span><div><strong id="stat-total">—</strong><span>Active reports</span></div></div>
+          <div class="stat-card"><span class="stat-icon green material-symbols-outlined">volunteer_activism</span><div><strong>Community first</strong><span>Secure handover</span></div></div>
+          <div class="stat-card"><span class="stat-icon indigo material-symbols-outlined">auto_awesome</span><div><strong>AI assisted</strong><span>Smarter discovery</span></div></div>
+        </section>
 
         <section id="search-view" class="view">
-          <div class="section-heading">
-            <div><p class="eyebrow">Discovery</p><h2>Search reports</h2></div>
-            <span id="result-count" class="muted"></span>
+          <div class="section-title"><div><p class="eyebrow">Discovery desk</p><h2>Browse campus items</h2><p>Search verified lost and found reports from your campus community.</p></div><button class="button primary-button" data-route="/report"><span class="material-symbols-outlined">add</span> Report lost / found</button></div>
+          <div class="home-actions">
+            <article class="action-card lost-action">
+              <div class="action-icon"><span class="material-symbols-outlined">search</span></div>
+              <span class="action-pill">Lost query</span>
+              <h3>Report Lost Item</h3>
+              <p>Can't find your keys, laptop charger, or ID? Report details and let Sarvam AI match it with campus records.</p>
+              <button class="button primary-button" data-route="/report">File Lost Item Report <span class="material-symbols-outlined">arrow_forward</span></button>
+            </article>
+            <article class="action-card found-action">
+              <div class="action-icon"><span class="material-symbols-outlined">inventory_2</span></div>
+              <span class="action-pill">Help community</span>
+              <h3>Report Found Item</h3>
+              <p>Discovered someone's belongings in CC3, Library, or Canteen? Help return it safely to the owner.</p>
+              <button class="button secondary-button" data-route="/report">Register Found Article <span class="material-symbols-outlined">inventory_2</span></button>
+            </article>
           </div>
-          <form id="search-form" class="searchbar">
-            <input name="q" placeholder="Search: blue bottle, wallet, library..." />
-            <select name="type"><option value="">All types</option><option value="LOST">Lost</option><option value="FOUND">Found</option></select>
+          <form id="search-form" class="search-panel">
+            <div class="search-input"><span class="material-symbols-outlined">search</span><input name="q" placeholder="Search items, brands, colours, or keywords..." /><kbd>/</kbd></div>
+            <select name="type"><option value="">All reports</option><option value="LOST">Lost items</option><option value="FOUND">Found items</option></select>
             <input name="category" placeholder="Category" />
-            <button class="primary">Search</button>
+            <input name="location" placeholder="Location" />
+            <input name="colour" placeholder="Colour" />
+            <button class="button secondary-button" type="submit">Search</button>
           </form>
+          <div class="results-heading"><h3>Latest reports</h3><span id="result-count" class="muted"></span></div>
           <div id="results" class="cards"></div>
+          <div class="ai-footer"><span class="ai-card-icon"><span class="material-symbols-outlined">auto_awesome</span></span><div><strong>Sarvam AI Visual &amp; Voice Item Matching</strong><small>Describe belongings in English, Hindi, or uploaded photos. Instant cross-matching across campus.</small></div><span class="ai-footer-link">Learn about Sarvam AI <span class="material-symbols-outlined">open_in_new</span></span></div>
         </section>
 
         <section id="report-view" class="view" hidden>
-          <div class="section-heading"><div><p class="eyebrow">Create</p><h2>Report an item</h2></div></div>
-          <form id="report-form" class="report-form">
-            <div class="form-grid">
-              <label>Report type<select name="reportType"><option value="LOST">I lost an item</option><option value="FOUND">I found an item</option></select></label>
-              <label>Title<input name="title" required placeholder="Blue water bottle" /></label>
-              <label>Category<input name="category" required placeholder="Water bottle" /></label>
-              <label>Colour<input name="colour" placeholder="Blue" /></label>
-              <label>Location<input name="locationText" required placeholder="Library entrance" /></label>
-              <label>Date<input name="eventDate" type="date" required /></label>
-              <label>Approximate time<input name="approximateTime" placeholder="14:30" /></label>
-              <label>Custody location<input name="custodyLocation" placeholder="Security office (found items)" /></label>
+          <div class="section-title"><div><p class="eyebrow">Create a report</p><h2>Tell us what happened</h2><p>Upload a photo and add the details that can help your campus find it.</p></div><span class="step-badge">Step 1 of 1</span></div>
+          <form id="report-form" class="report-layout">
+            <div class="report-main">
+              <div class="type-toggle"><label><input type="radio" name="reportType" value="LOST" checked /><span><b class="lost-dot"></b>I lost something</span></label><label><input type="radio" name="reportType" value="FOUND" /><span><b class="found-dot"></b>I found something</span></label></div>
+              <div class="field-grid">
+                <label>Item title<input name="title" required placeholder="e.g. Blue water bottle" /></label>
+                <label>Category<input name="category" required placeholder="e.g. Water bottle" /></label>
+                <label>Colour<input name="colour" placeholder="e.g. Navy blue" /></label>
+                <label>Date<input name="eventDate" type="date" required /></label>
+                <label class="wide">Where was it lost or found?<input name="locationText" required placeholder="e.g. Library, 2nd floor" /></label>
+                <label>Approximate time<input name="approximateTime" placeholder="e.g. Around 2:30 PM" /></label>
+                <label>Custody location<input name="custodyLocation" placeholder="For found items, if applicable" /></label>
+              </div>
+              <label>Description<textarea name="description" rows="5" placeholder="Add identifying details, stickers, scratches, or anything else useful..."></textarea></label>
+              <label>Search tags<input name="tags" placeholder="blue, metal, black cap" /><small>Separate keywords with commas.</small></label>
+              <div class="upload-box"><span class="material-symbols-outlined">add_photo_alternate</span><div><strong>Upload a clear photo</strong><small>JPG or PNG · Max 8 MB</small></div><input name="image" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required /></div>
+              <button class="button primary-button submit-report" type="submit">Submit report <span class="material-symbols-outlined">arrow_forward</span></button>
             </div>
-            <label>Description<textarea name="description" rows="4" placeholder="Add details you know. Sarvam AI can assist when configured."></textarea></label>
-            <label>Search tags<input name="tags" placeholder="blue, metal, black cap" /></label>
-            <label>Photo<input name="image" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required /></label>
-            <button class="primary" type="submit">Submit report</button>
+            <aside class="ai-card"><div class="ai-card-icon"><span class="material-symbols-outlined">auto_awesome</span></div><p class="eyebrow">Sarvam AI assisted</p><h3>Make your report easier to find.</h3><p>When enabled, Sarvam AI reads your item photo and suggests a clear description and searchable tags. You always review the suggestion before it is published.</p><div class="ai-note"><span class="material-symbols-outlined">lock</span><span>Your personal details stay private.</span></div></aside>
           </form>
         </section>
 
         <section id="mine-view" class="view" hidden>
-          <div class="section-heading"><div><p class="eyebrow">Account</p><h2>My reports</h2></div></div>
+          <div class="section-title"><div><p class="eyebrow">Your activity</p><h2>My reports</h2><p>Track reports, matches, and the next step for every item.</p></div></div>
           <div id="mine-results" class="cards"></div>
         </section>
+
+        <section id="admin-view" class="view" hidden>
+          <div class="section-title"><div><p class="eyebrow">Security desk</p><h2>Admin dashboard</h2><p>Review reports, claims, and campus members.</p></div></div>
+          <div id="admin-stats" class="stats-row"></div>
+          <div class="admin-grid">
+            <div class="admin-panel"><div class="results-heading"><h3>Pending claims</h3><span class="muted">Verify before handover</span></div><div id="admin-claims" class="admin-list"></div></div>
+            <div class="admin-panel"><div class="results-heading"><h3>Recent reports</h3><span class="muted">Moderation queue</span></div><div id="admin-reports" class="admin-list"></div></div>
+            <div class="admin-panel"><div class="results-heading"><h3>Campus members</h3><span class="muted">Account access</span></div><div id="admin-users" class="admin-list"></div></div>
+          </div>
+        </section>
+        <nav class="mobile-nav" aria-label="Mobile navigation">
+          <button data-route="/" class="mobile-nav-link"><span class="material-symbols-outlined">home</span><small>Home</small></button>
+          <button data-route="/report" class="mobile-nav-link"><span class="material-symbols-outlined">add_circle</span><small>Report</small></button>
+          <button data-route="/mine" class="mobile-nav-link"><span class="material-symbols-outlined">inventory_2</span><small>My reports</small></button>
+          <button data-route="/admin" class="mobile-nav-link mobile-admin-link"><span class="material-symbols-outlined">admin_panel_settings</span><small>Admin</small></button>
+        </nav>
       </section>
     </main>
     <script src="/app.js"></script>

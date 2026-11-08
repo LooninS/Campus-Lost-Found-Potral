@@ -107,6 +107,24 @@ Request:
 
 The server validates the status transition and verifies ownership or administrator role.
 
+### Automatic matching
+
+When a `LOST` report is created, the server compares its title, category, description, colour, and tags with active `FOUND` reports. Matches above the configured prototype threshold are stored in `matches`, notifications are created for both reporters, and the create response includes:
+
+```json
+{
+  "potentialMatches": [
+    {
+      "id": "match-uuid",
+      "reportId": "found-report-uuid",
+      "title": "Black leather wallet",
+      "score": 0.72,
+      "reportType": "FOUND"
+    }
+  ]
+}
+```
+
 ## Error Format
 
 ```json

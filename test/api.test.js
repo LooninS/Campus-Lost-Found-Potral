@@ -71,3 +71,59 @@ test('registers, creates, searches, and resolves a report', async () => {
   });
   assert.equal(removed.response.status, 200);
 });
+
+test('automatically matches a new lost report to an existing found report', async () => {
+  const foundUser = await json('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ fullName: 'Found Reporter', email: `found-${Date.now()}@college.edu`, password: 'password123' })
+  });
+  const foundForm = new FormData();
+  for (const [key, value] of Object.entries({
+    reportType: 'FOUND',
+    title: 'Black leather wallet',
+    category: 'wallet',
+    description: 'Black leather wallet found near the library',
+    colour: 'black',
+    locationText: 'Library',
+    eventDate: '2026-11-02',
+    tags: 'black,leather,wallet'
+  })) foundForm.append(key, value);
+  foundForm.append('image', new Blob(['found image'], { type: 'image/png' }), 'wallet.png');
+  const foundResponse = await fetch(`${baseUrl}/api/v1/reports`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${foundUser.body.token}` },
+    body: foundForm
+  });
+  assert.equal(foundResponse.status, 201);
+
+  const lostUser = await json('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ fullName: 'Lost Reporter', email: `lost-${Date.now()}@college.edu`, password: 'password123' })
+  });
+  const lostForm = new FormData();
+  for (const [key, value] of Object.entries({
+    reportType: 'LOST',
+    title: 'Black leather wallet',
+    category: 'wallet',
+    description: 'I lost my black leather wallet near the library',
+    colour: 'black',
+    locationText: 'Library',
+    eventDate: '2026-11-02',
+    tags: 'black,leather,wallet'
+  })) lostForm.append(key, value);
+  lostForm.append('image', new Blob(['lost image'], { type: 'image/png' }), 'wallet.png');
+  const lostResponse = await fetch(`${baseUrl}/api/v1/reports`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${lostUser.body.token}` },
+    body: lostForm
+  });
+  const lost = await lostResponse.json();
+  assert.equal(lostResponse.status, 201);
+  assert.equal(lost.status, 'MATCHED');
+  assert.ok(lost.potentialMatches.length >= 1);
+
+  const notifications = await json('/api/v1/notifications', {
+    headers: { Authorization: `Bearer ${lostUser.body.token}` }
+  });
+  assert.ok(notifications.body.results.some((item) => item.message.includes('Potential found-item match')));
+});

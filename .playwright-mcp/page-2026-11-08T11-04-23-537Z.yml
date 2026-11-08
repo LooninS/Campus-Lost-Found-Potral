@@ -1,0 +1,60 @@
+- generic [active] [ref=f2e1]:
+  - status
+  - banner [ref=f2e2]:
+    - link "account_balance IIITA Campus Lost & Found" [ref=f2e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=f2e4]: account_balance
+      - generic [ref=f2e5]:
+        - strong [ref=f2e6]: IIITA
+        - generic [ref=f2e7]: Campus Lost & Found
+    - navigation "Primary navigation" [ref=f2e8]:
+      - button "Browse items" [ref=f2e9] [cursor=pointer]
+      - button "Report item" [ref=f2e10] [cursor=pointer]
+      - button "My reports" [ref=f2e11] [cursor=pointer]
+    - button "Sign in" [ref=f2e13] [cursor=pointer]
+  - main [ref=f2e14]:
+    - generic [ref=f2e15]:
+      - generic [ref=f2e16]:
+        - generic [ref=f2e19]: travel_explore
+        - paragraph [ref=f2e20]: IIITA campus network
+        - heading "Small things matter. Let’s find yours." [level=1] [ref=f2e21]: Small things matter.Let’s find yours.
+        - paragraph [ref=f2e22]: A trusted campus community for reporting, discovering, and returning lost belongings.
+        - generic [ref=f2e23]:
+          - generic [ref=f2e24]: verified_user
+          - generic [ref=f2e25]: Private by design
+          - generic [ref=f2e26]: auto_awesome
+          - generic [ref=f2e27]: Sarvam AI assisted
+      - generic [ref=f2e28]:
+        - generic [ref=f2e29]:
+          - paragraph [ref=f2e30]: Welcome back
+          - heading "Sign in to your campus" [level=2] [ref=f2e31]
+          - paragraph [ref=f2e32]: Use your approved college email to continue.
+        - generic [ref=f2e33]:
+          - generic [ref=f2e34]:
+            - text: Email address
+            - textbox "Email address" [ref=f2e35]:
+              - /placeholder: you@college.edu
+          - generic [ref=f2e36]:
+            - text: Password
+            - generic [ref=f2e37]:
+              - textbox "Password lock" [ref=f2e38]:
+                - /placeholder: Enter your password
+              - generic [ref=f2e39]: lock
+          - button "Sign in arrow_forward" [ref=f2e40] [cursor=pointer]:
+            - text: Sign in
+            - generic [ref=f2e41]: arrow_forward
+        - generic [ref=f2e42]: New to the portal?
+        - generic [ref=f2e44]:
+          - generic [ref=f2e45]:
+            - text: Full name
+            - textbox "Full name" [ref=f2e46]:
+              - /placeholder: Your name
+          - generic [ref=f2e47]:
+            - text: College email
+            - textbox "College email" [ref=f2e48]:
+              - /placeholder: you@college.edu
+          - generic [ref=f2e49]:
+            - text: Create password
+            - textbox "Create password" [ref=f2e50]:
+              - /placeholder: At least 8 characters
+          - button "Create account" [ref=f2e51] [cursor=pointer]
