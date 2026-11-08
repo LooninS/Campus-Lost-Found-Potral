@@ -18,8 +18,24 @@ const jwtSecret = process.env.JWT_SECRET || 'development-secret';
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/campus-lost-found-uploads' : 'uploads'));
 fs.mkdirSync(uploadDir, { recursive: true });
 
+app.use((req, res, next) => {
+  const requestId = crypto.randomUUID();
+  req.requestId = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
 app.use(express.json());
 app.use(express.static(path.resolve('public')));
+
+app.get('/health', (_req, res) => {
+  try {
+    db.prepare('SELECT 1 AS ok').get();
+    res.json({ status: 'ok', database: 'ok' });
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'health_check_failed', error: error.message }));
+    res.status(503).json({ status: 'degraded', database: 'unavailable' });
+  }
+});
 
 const upload = multer({
   dest: uploadDir,
@@ -31,6 +47,30 @@ const upload = multer({
     cb(null, true);
   }
 });
+
+function rateLimit(limit, windowMs) {
+  const clients = new Map();
+  return (req, res, next) => {
+    const nowMs = Date.now();
+    const key = req.ip || 'unknown';
+    const current = clients.get(key);
+    if (!current || nowMs >= current.resetAt) {
+      clients.set(key, { count: 1, resetAt: nowMs + windowMs });
+      return next();
+    }
+    if (current.count >= limit) {
+      res.setHeader('Retry-After', Math.ceil((current.resetAt - nowMs) / 1000));
+      return res.status(429).json({ error: 'Too many requests. Please try again later.', requestId: req.requestId });
+    }
+    current.count += 1;
+    next();
+  };
+}
+
+const rateLimitWindow = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
+app.use('/api/v1/auth', rateLimit(Number(process.env.AUTH_RATE_LIMIT || 30), rateLimitWindow));
+app.use('/api/v1/ai', rateLimit(Number(process.env.AI_RATE_LIMIT || 20), rateLimitWindow));
+app.use('/api/v1/reports', rateLimit(Number(process.env.REPORT_RATE_LIMIT || 30), rateLimitWindow));
 
 const reportSchema = z.object({
   reportType: z.enum(['LOST', 'FOUND']),
@@ -610,12 +650,12 @@ app.patch('/api/v1/admin/reports/:id/remove', requireAuth, requireAdmin, (req, r
 });
 
 app.use('/uploads', express.static(uploadDir));
-app.use((error, _req, res, _next) => {
+app.use((error, req, res, _next) => {
   if (error instanceof multer.MulterError || error.message?.includes('image')) {
-    return res.status(400).json({ error: error.message });
+    return res.status(400).json({ error: error.message, requestId: req.requestId });
   }
-  console.error(error);
-  res.status(500).json({ error: 'Unexpected server error.' });
+  console.error(JSON.stringify({ event: 'unhandled_request_error', requestId: req.requestId, error: error.message }));
+  res.status(500).json({ error: 'Unexpected server error.', requestId: req.requestId });
 });
 
 app.get('*', (_req, res) => res.sendFile(path.resolve('public/index.html')));

@@ -36,6 +36,10 @@ Open <http://localhost:3000>.
 
 The public landing page is `/`; authentication is handled at `/login`. Protected links redirect to `/login` and return to the requested page after authentication.
 
+The deployment health check is available at `/health` and returns database availability without exposing configuration or user data. API responses also include an `X-Request-ID` header for safe operational correlation.
+
+Authentication, AI preview, and report-creation endpoints use configurable per-instance rate limits (`AUTH_RATE_LIMIT`, `AI_RATE_LIMIT`, `REPORT_RATE_LIMIT`). These limits protect the prototype from accidental bursts; production deployments should move rate-limit state to a shared store.
+
 ## Deploy to Vercel
 
 Install and authenticate with the Vercel CLI, then run:
@@ -83,10 +87,15 @@ src/server.js         REST API and server entry point
 - Sarvam Vision OCR is not yet integrated; current privacy protection covers Sarvam text output and user-edited fields.
 - Semantic embeddings/vector search and background AI jobs are not implemented yet; matching currently uses lexical/category/colour signals.
 - Admin moderation has core review actions but not bulk moderation or full audit-log browsing.
+- Health checks, request IDs, and per-instance rate limits are implemented, but shared production observability/rate-limit storage is still required.
 
 ## Next implementation increments
 
 1. Provision durable PostgreSQL/Turso storage and private object storage.
 2. Integrate Sarvam Vision OCR with consent-safe redaction and restricted evidence.
 3. Add embeddings/vector similarity and background AI processing.
-4. Expand admin moderation, observability, rate limiting, and end-to-end coverage.
+4. Expand admin moderation, shared observability/rate limiting, and end-to-end coverage.
+
+## Latest verified deployment
+
+The latest verified production deployment is available at <https://campus-lost-and-found-potral.vercel.app>. `/health`, `/`, and `/login` return HTTP 200, and the configured administrator login was verified after deployment.
