@@ -138,6 +138,6 @@ button { cursor: pointer; }
   .mobile-nav { position: fixed; z-index: 30; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(4, 1fr); height: 64px; padding: .3rem .5rem calc(.3rem + env(safe-area-inset-bottom)); border-top: 1px solid #c5c5d3; background: rgba(255,255,255,.96); box-shadow: 0 -8px 20px rgba(15,23,42,.08); backdrop-filter: blur(12px); }
   .mobile-nav-link { display: grid; place-items: center; gap: .05rem; border: 0; border-radius: .7rem; color: #64748b; background: transparent; font: 600 .58rem Inter, sans-serif; }
   .mobile-nav-link .material-symbols-outlined { font-size: 20px; }
-  .mobile-nav-link:hover, .mobile-nav-link:focus-visible { color: #00236f; background: #eef2ff; outline: 0; }
+  .mobile-nav-link:hover, .mobile-nav-link:focus-visible, .mobile-nav-link.active { color: #00236f; background: #eef2ff; outline: 0; }
   .mobile-admin-link[hidden] { display: none; }
 }

@@ -1,0 +1,125 @@
+- generic [active] [ref=f1e1]:
+  - status
+  - banner [ref=f1e2]:
+    - link "account_balance IIITA Campus Lost & Found" [ref=f1e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=f1e4]: account_balance
+      - generic [ref=f1e5]:
+        - strong [ref=f1e6]: IIITA
+        - generic [ref=f1e7]: Campus Lost & Found
+    - navigation "Primary navigation" [ref=f1e8]:
+      - button "Browse items" [ref=f1e9] [cursor=pointer]
+      - button "Report item" [ref=f1e10] [cursor=pointer]
+      - button "My reports" [ref=f1e11] [cursor=pointer]
+      - button "Admin desk" [ref=f1e12] [cursor=pointer]
+    - generic [ref=f1e13]:
+      - button "Notifications" [ref=f1e14] [cursor=pointer]:
+        - generic [ref=f1e15]: notifications
+      - button "add Report item" [ref=f1e17] [cursor=pointer]:
+        - generic [ref=f1e18]: add
+        - text: Report item
+      - generic [ref=f1e19]:
+        - generic [ref=f1e20]: CA
+        - generic [ref=f1e21]:
+          - strong [ref=f1e22]: Campus Administrator
+          - generic [ref=f1e23]: Campus member
+      - button "Log out" [ref=f1e24] [cursor=pointer]:
+        - generic [ref=f1e25]: logout
+  - main [ref=f1e26]:
+    - generic [ref=f1e27]:
+      - generic [ref=f1e28]:
+        - generic [ref=f1e29]:
+          - generic [ref=f1e30]: Campus portal active · Jhalwa campus
+          - heading "Welcome back, Campus." [level=1] [ref=f1e32]
+          - paragraph [ref=f1e33]: Find what matters, report what you discover, and help reunite belongings across campus.
+        - generic [ref=f1e34]: school
+      - generic [ref=f1e36]:
+        - generic [ref=f1e37]:
+          - generic [ref=f1e38]: inventory_2
+          - generic [ref=f1e39]:
+            - strong [ref=f1e40]: —
+            - generic [ref=f1e41]: Active reports
+        - generic [ref=f1e42]:
+          - generic [ref=f1e43]: volunteer_activism
+          - generic [ref=f1e44]:
+            - strong [ref=f1e45]: Community first
+            - generic [ref=f1e46]: Secure handover
+        - generic [ref=f1e47]:
+          - generic [ref=f1e48]: auto_awesome
+          - generic [ref=f1e49]:
+            - strong [ref=f1e50]: AI assisted
+            - generic [ref=f1e51]: Smarter discovery
+      - generic [ref=f1e52]:
+        - generic [ref=f1e54]:
+          - paragraph [ref=f1e55]: Security desk
+          - heading "Admin dashboard" [level=2] [ref=f1e56]
+          - paragraph [ref=f1e57]: Review reports, claims, and campus members.
+        - generic [ref=f1e59]:
+          - generic [ref=f1e60]:
+            - strong [ref=f1e61]: "6"
+            - generic [ref=f1e62]: Total reports
+          - generic [ref=f1e63]:
+            - strong [ref=f1e64]: "3"
+            - generic [ref=f1e65]: Lost reports
+          - generic [ref=f1e66]:
+            - strong [ref=f1e67]: "3"
+            - generic [ref=f1e68]: Found reports
+          - generic [ref=f1e69]:
+            - strong [ref=f1e70]: "0"
+            - generic [ref=f1e71]: Resolved
+        - generic [ref=f1e72]:
+          - generic [ref=f1e73]:
+            - generic [ref=f1e74]:
+              - heading "Pending claims" [level=3] [ref=f1e75]
+              - generic [ref=f1e76]: Verify before handover
+            - generic [ref=f1e77]: No claims need review.
+          - generic [ref=f1e79]:
+            - generic [ref=f1e80]:
+              - heading "Recent reports" [level=3] [ref=f1e81]
+              - generic [ref=f1e82]: Moderation queue
+            - generic [ref=f1e83]:
+              - generic [ref=f1e84]:
+                - generic [ref=f1e85]:
+                  - strong [ref=f1e86]: Blue IIITA identity card holder
+                  - generic [ref=f1e87]: LOST · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e88] [cursor=pointer]
+              - generic [ref=f1e89]:
+                - generic [ref=f1e90]:
+                  - strong [ref=f1e91]: Grey Lenovo laptop charger
+                  - generic [ref=f1e92]: FOUND · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e93] [cursor=pointer]
+              - generic [ref=f1e94]:
+                - generic [ref=f1e95]:
+                  - strong [ref=f1e96]: Green spiral notebook
+                  - generic [ref=f1e97]: LOST · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e98] [cursor=pointer]
+              - generic [ref=f1e99]:
+                - generic [ref=f1e100]:
+                  - strong [ref=f1e101]: Navy blue water bottle
+                  - generic [ref=f1e102]: FOUND · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e103] [cursor=pointer]
+              - generic [ref=f1e104]:
+                - generic [ref=f1e105]:
+                  - strong [ref=f1e106]: Black wireless earbuds case
+                  - generic [ref=f1e107]: LOST · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e108] [cursor=pointer]
+              - generic [ref=f1e109]:
+                - generic [ref=f1e110]:
+                  - strong [ref=f1e111]: Brown leather wallet
+                  - generic [ref=f1e112]: FOUND · ACTIVE · Demo Campus User
+                - button "Remove" [ref=f1e113] [cursor=pointer]
+          - generic [ref=f1e114]:
+            - generic [ref=f1e115]:
+              - heading "Campus members" [level=3] [ref=f1e116]
+              - generic [ref=f1e117]: Account access
+            - generic [ref=f1e118]:
+              - generic [ref=f1e119]:
+                - generic [ref=f1e120]:
+                  - strong [ref=f1e121]: Campus Administrator
+                  - generic [ref=f1e122]: admin@college.edu · ADMIN
+                - button "Deactivate" [ref=f1e123] [cursor=pointer]
+              - generic [ref=f1e124]:
+                - generic [ref=f1e125]:
+                  - strong [ref=f1e126]: Demo Campus User
+                  - generic [ref=f1e127]: demo@college.edu · USER
+                - button "Deactivate" [ref=f1e128] [cursor=pointer]

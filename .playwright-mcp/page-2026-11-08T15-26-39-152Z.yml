@@ -1,0 +1,24 @@
+- generic [active] [ref=e1]:
+  - status
+  - banner [ref=e2]:
+    - link "account_balance IIITA Campus Lost & Found" [ref=e3] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e4]: account_balance
+      - generic [ref=e5]:
+        - strong [ref=e6]: IIITA
+        - generic [ref=e7]: Campus Lost & Found
+    - navigation "Primary navigation" [ref=e8]:
+      - button "Browse items" [ref=e9] [cursor=pointer]
+      - button "Report item" [ref=e10] [cursor=pointer]
+      - button "My reports" [ref=e11] [cursor=pointer]
+    - button "Sign in" [ref=e13] [cursor=pointer]
+  - main [ref=e14]:
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - paragraph [ref=e18]: IIITA campus network
+        - heading "Find what matters. Return what you discover." [level=1] [ref=e19]: Find what matters.Return what you discover.
+        - paragraph [ref=e20]: A trusted campus community for reporting, discovering, and returning lost belongings with Sarvam AI-assisted search.
+        - generic [ref=e21]:
+          - button "Sign in to campus" [ref=e22] [cursor=pointer]
+          - button "Create account" [ref=e23] [cursor=pointer]
+      - generic [ref=e24]: travel_explore

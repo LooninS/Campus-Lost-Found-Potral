@@ -149,6 +149,25 @@ function adminEmails() {
   return new Set(String(process.env.ADMIN_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean));
 }
 
+function seedConfiguredAdmin() {
+  const email = [...adminEmails()][0];
+  const password = String(process.env.ADMIN_PASSWORD || '');
+  if (!email || !password) return;
+
+  const existing = db.prepare('SELECT id FROM users WHERE college_email = ?').get(email);
+  if (existing) {
+    db.prepare('UPDATE users SET role = ?, is_active = 1 WHERE id = ?').run('ADMIN', existing.id);
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO users (id, college_email, password_hash, full_name, role, is_active, created_at)
+    VALUES (?, ?, ?, ?, 'ADMIN', 1, ?)
+  `).run(crypto.randomUUID(), email, bcrypt.hashSync(password, 12), 'Campus Administrator', now());
+}
+
+seedConfiguredAdmin();
+
 function createNotification(userId, reportId, message) {
   db.prepare('INSERT INTO notifications (id, user_id, report_id, message, created_at) VALUES (?, ?, ?, ?, ?)')
     .run(crypto.randomUUID(), userId, reportId, message, now());

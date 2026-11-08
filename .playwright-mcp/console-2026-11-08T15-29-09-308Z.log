@@ -1,0 +1,4 @@
+[    1373ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://campus-lost-and-found-potral.vercel.app/login:0
+[    1374ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://campus-lost-and-found-potral.vercel.app/login:0
+[    6018ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://campus-lost-and-found-potral.vercel.app/admin:0
+[    6018ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://campus-lost-and-found-potral.vercel.app/admin:0

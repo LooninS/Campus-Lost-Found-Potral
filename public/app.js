@@ -112,6 +112,7 @@ function renderRoute() {
     view.hidden = view.id !== `${viewName}-view`;
   });
   document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.dataset.route === (path === '/' ? '/' : path)));
+  document.querySelectorAll('.mobile-nav-link').forEach((link) => link.classList.toggle('active', link.dataset.route === (path === '/' ? '/' : path)));
   if (viewName === 'search') loadReports();
   if (viewName === 'mine') loadMine();
   if (viewName === 'admin') loadAdmin();
