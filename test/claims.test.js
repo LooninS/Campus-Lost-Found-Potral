@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-process.env.DATA_DIR = `data/test-claims-${process.pid}`;
+const jwt = require('jsonwebtoken');
+process.env.DATA_DIR = `data/test-claims-${process.pid}-${Date.now()}`;
+process.env.COLLEGE_EMAIL_DOMAIN = 'college.edu';
 const app = require('../src/server');
 
 let server;
@@ -28,6 +30,19 @@ test('requires authentication and protects claim creation', async () => {
     body: JSON.stringify({ message: 'I can identify the item.' })
   });
   assert.equal(result.response.status, 401);
+});
+
+test('rejects a token for a user missing from the active database', async () => {
+  const token = jwt.sign(
+    { id: 'missing-user', role: 'USER', email: 'missing@college.edu' },
+    process.env.JWT_SECRET || 'development-secret',
+    { expiresIn: '2h' }
+  );
+  const result = await request('/api/v1/notifications', {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  assert.equal(result.response.status, 401);
+  assert.match(result.body.error, /sign in again/i);
 });
 
 test('rejects administrator endpoints for ordinary users', async () => {

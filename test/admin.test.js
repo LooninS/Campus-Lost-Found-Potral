@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-process.env.DATA_DIR = `data/test-admin-${process.pid}`;
+process.env.DATA_DIR = `data/test-admin-${process.pid}-${Date.now()}`;
+process.env.COLLEGE_EMAIL_DOMAIN = 'college.edu';
 process.env.ADMIN_EMAILS = 'test-admin@college.edu';
 process.env.ADMIN_PASSWORD = 'AdminTest@2026!';
 

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-process.env.DATA_DIR = `data/test-smoke-${process.pid}`;
+process.env.DATA_DIR = `data/test-smoke-${process.pid}-${Date.now()}`;
 const request = require('node:http');
 
 test('project exposes the public application after startup', async () => {

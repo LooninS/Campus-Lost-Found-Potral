@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-process.env.DATA_DIR = `data/test-api-${process.pid}`;
+process.env.DATA_DIR = `data/test-api-${process.pid}-${Date.now()}`;
+process.env.COLLEGE_EMAIL_DOMAIN = 'college.edu';
 const app = require('../src/server');
 
 let server;
@@ -26,6 +27,7 @@ async function json(path, options = {}) {
 
 test('registers, creates, searches, and resolves a report', async () => {
   const email = `student-${Date.now()}@college.edu`;
+  const uniqueItem = `Unique API test bottle ${Date.now()}`;
   const registration = await json('/api/v1/auth/register', {
     method: 'POST',
     body: JSON.stringify({ fullName: 'Test Student', email, password: 'password123' })
@@ -35,13 +37,13 @@ test('registers, creates, searches, and resolves a report', async () => {
 
   const form = new FormData();
   form.append('reportType', 'LOST');
-  form.append('title', 'Blue campus bottle');
-  form.append('category', 'water bottle');
-  form.append('description', 'Blue metal bottle with black cap');
-  form.append('colour', 'blue');
+  form.append('title', uniqueItem);
+  form.append('category', `api-category-${Date.now()}`);
+  form.append('description', `Unique API description ${uniqueItem}`);
+  form.append('colour', `api-colour-${Date.now()}`);
   form.append('locationText', 'Library entrance');
   form.append('eventDate', '2026-11-01');
-  form.append('tags', 'blue,metal,bottle');
+  form.append('tags', `blue,metal,bottle,${uniqueItem.toLowerCase().replaceAll(' ', '-')}`);
   form.append('image', new Blob(['prototype image'], { type: 'image/png' }), 'bottle.png');
 
   const createdResponse = await fetch(`${baseUrl}/api/v1/reports`, {
@@ -53,7 +55,7 @@ test('registers, creates, searches, and resolves a report', async () => {
   assert.equal(createdResponse.status, 201);
   assert.equal(created.status, 'ACTIVE');
 
-  const search = await json('/api/v1/reports?q=blue%20bottle');
+  const search = await json(`/api/v1/reports?q=${encodeURIComponent(uniqueItem)}`);
   assert.equal(search.response.status, 200);
   assert.ok(search.body.results.some((item) => item.id === created.id));
 
