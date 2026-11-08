@@ -4,6 +4,7 @@ const state = {
 };
 const $ = (selector) => document.querySelector(selector);
 const routeViews = { '/': 'search', '/report': 'report', '/mine': 'mine', '/admin': 'admin' };
+const reportDraftKey = 'campus_report_draft';
 
 function showToast(text) {
   const toast = $('#toast');
@@ -11,6 +12,36 @@ function showToast(text) {
   toast.classList.add('show');
   clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.remove('show'), 4200);
+}
+
+function saveReportDraft() {
+  const form = $('#report-form');
+  if (!form) return;
+  const draft = Object.fromEntries(new FormData(form));
+  delete draft.image;
+  localStorage.setItem(reportDraftKey, JSON.stringify(draft));
+}
+
+function restoreReportDraft() {
+  const form = $('#report-form');
+  if (!form) return;
+  let draft;
+  try {
+    draft = JSON.parse(localStorage.getItem(reportDraftKey) || 'null');
+  } catch {
+    localStorage.removeItem(reportDraftKey);
+    return;
+  }
+  if (!draft) return;
+  for (const [name, value] of Object.entries(draft)) {
+    const field = form.elements[name];
+    if (!field) continue;
+    if (field instanceof RadioNodeList) {
+      [...field].forEach((input) => { input.checked = input.value === value; });
+    } else {
+      field.value = value;
+    }
+  }
 }
 
 async function api(url, options = {}) {
@@ -53,7 +84,7 @@ function renderAuthActions() {
   }
   actions.innerHTML = `
     <button class="icon-button" aria-label="Notifications" id="notifications-button">
-      <span class="material-symbols-outlined">notifications</span><i class="notification-dot"></i>
+      <span class="material-symbols-outlined">notifications</span><i class="notification-dot" hidden></i>
     </button>
     <button class="button primary-button desktop-report" data-route="/report"><span class="material-symbols-outlined">add</span> Report item</button>
     <div class="profile">
@@ -70,7 +101,11 @@ function renderAuthActions() {
     renderAuthActions();
     navigate('/');
   });
-  $('#notifications-button').addEventListener('click', loadNotifications);
+  $('#notifications-button').addEventListener('click', () => {
+    const panel = $('#notifications-panel');
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) loadNotifications();
+  });
 }
 
 function navigate(path, replace = false) {
@@ -107,15 +142,21 @@ function renderRoute() {
   $('#app-view').hidden = !authenticated;
   if (!authenticated) return;
 
-  const viewName = routeViews[path] || 'search';
+  const itemMatch = path.match(/^\/item\/([^/]+)$/);
+  const viewName = itemMatch ? 'item' : (routeViews[path] || 'search');
   document.querySelectorAll('.view').forEach((view) => {
     view.hidden = view.id !== `${viewName}-view`;
   });
-  document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.dataset.route === (path === '/' ? '/' : path)));
-  document.querySelectorAll('.mobile-nav-link').forEach((link) => link.classList.toggle('active', link.dataset.route === (path === '/' ? '/' : path)));
+  document.querySelectorAll('.nav-link, .mobile-nav-link').forEach((link) => {
+    const active = link.dataset.route === (path === '/' ? '/' : path);
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
   if (viewName === 'search') loadReports();
   if (viewName === 'mine') loadMine();
   if (viewName === 'admin') loadAdmin();
+  if (viewName === 'item') loadItemDetail(itemMatch[1]);
 }
 
 function statusBadge(report) {
@@ -145,9 +186,60 @@ function card(report, mine = false) {
         <p class="card-meta"><span class="material-symbols-outlined">location_on</span>${escapeHtml(report.locationText)} · ${escapeHtml(report.eventDate)}</p>
         <p>${escapeHtml(report.description || report.aiDescription || 'No description provided.')}</p>
         ${report.tags?.length ? `<p class="card-meta">${report.tags.slice(0, 4).map((tag) => `#${escapeHtml(tag)}`).join(' ')}</p>` : ''}
-        ${action || claim ? `<div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.8rem">${action}${claim}</div>` : ''}
+        <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.8rem"><button class="button secondary-button" data-route="/item/${report.id}">View details</button>${action}${claim}</div>
       </div>
     </article>`;
+}
+
+async function loadItemDetail(id) {
+  try {
+    const data = await api(`/api/v1/reports/${encodeURIComponent(id)}`);
+    const report = data.report;
+    const image = report.imageUrl
+      ? `<img class="detail-image" src="${report.imageUrl}" alt="${escapeHtml(report.title)}">`
+      : '<div class="detail-image placeholder"><span class="material-symbols-outlined">inventory_2</span></div>';
+    const claim = report.reportType === 'FOUND' && ['ACTIVE', 'MATCHED'].includes(report.status)
+      ? '<button id="detail-claim" class="button primary-button">Claim this item</button>'
+      : '';
+    $('#item-detail').innerHTML = `
+      <button class="button secondary-button" data-route="/">← Back to reports</button>
+      <div class="detail-layout">
+        <div>${image}</div>
+        <article class="detail-card">
+          <div class="card-topline">${statusBadge(report)}</div>
+          <h2>${escapeHtml(report.title)}</h2>
+          <p class="card-meta"><span class="material-symbols-outlined">location_on</span>${escapeHtml(report.locationText)} · ${escapeHtml(report.eventDate)} · ${escapeHtml(report.approximateTime || 'Time not provided')}</p>
+          <dl class="detail-facts">
+            <div><dt>Category</dt><dd>${escapeHtml(report.category)}</dd></div>
+            <div><dt>Colour</dt><dd>${escapeHtml(report.colour || 'Not specified')}</dd></div>
+            <div><dt>Condition</dt><dd>${escapeHtml(report.condition || 'Not specified')}</dd></div>
+            <div><dt>Accessories</dt><dd>${escapeHtml(report.accessories?.join(', ') || 'None specified')}</dd></div>
+          </dl>
+          <p>${escapeHtml(report.description || report.aiDescription || 'No description provided.')}</p>
+          ${report.brandOrIdentifyingText ? `<p><strong>Identifying details:</strong> ${escapeHtml(report.brandOrIdentifyingText)}</p>` : ''}
+          ${report.tags?.length ? `<p class="card-meta">${report.tags.map((tag) => `#${escapeHtml(tag)}`).join(' ')}</p>` : ''}
+          ${claim}
+        </article>
+      </div>
+      <div class="detail-card status-history"><h3>Status history</h3>${data.history.length ? data.history.map((entry) => `<p><strong>${escapeHtml(entry.new_status)}</strong><small>${new Date(entry.created_at).toLocaleString()}</small></p>`).join('') : '<p>No status history available.</p>'}</div>`;
+    $('#detail-claim')?.addEventListener('click', async () => {
+      const message = window.prompt('Tell the admin how you can identify this item:');
+      if (!message) return;
+      try {
+        await api(`/api/v1/reports/${report.id}/claims`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        showToast('Claim submitted for admin verification.');
+        loadItemDetail(report.id);
+      } catch (error) {
+        showToast(error.message);
+      }
+    });
+  } catch (error) {
+    $('#item-detail').innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 async function loadReports() {
@@ -199,16 +291,29 @@ async function loadNotifications() {
   try {
     const data = await api('/api/v1/notifications');
     const unread = data.results.filter((notification) => !notification.isRead);
-    if (unread.length) {
-      showToast(unread[0].message);
-      await api(`/api/v1/notifications/${unread[0].id}/read`, { method: 'PATCH' });
-    } else {
-      showToast(data.results.length ? data.results[0].message : 'You have no new notifications.');
-    }
+    $('.notification-dot').hidden = unread.length === 0;
+    $('#notifications-list').innerHTML = data.results.length
+      ? data.results.map((notification) => `
+        <article class="notification-item${notification.isRead ? '' : ' unread'}">
+          <span class="material-symbols-outlined">${notification.isRead ? 'notifications_none' : 'notifications_active'}</span>
+          <p>${escapeHtml(notification.message)}<small>${new Date(notification.createdAt).toLocaleString()}</small></p>
+          ${notification.isRead ? '' : `<button class="notification-read" data-id="${notification.id}">Mark read</button>`}
+        </article>`).join('')
+      : '<div class="empty">No notifications yet.</div>';
+    document.querySelectorAll('.notification-read').forEach((button) => button.addEventListener('click', async () => {
+      try {
+        await api(`/api/v1/notifications/${button.dataset.id}/read`, { method: 'PATCH' });
+        loadNotifications();
+      } catch (error) {
+        showToast(error.message);
+      }
+    }));
   } catch (error) {
     showToast(error.message);
   }
 }
+
+$('#close-notifications').addEventListener('click', () => { $('#notifications-panel').hidden = true; });
 
 async function loadAdmin() {
   try {
@@ -317,6 +422,81 @@ $('#search-form').addEventListener('submit', (event) => {
   loadReports().catch((error) => showToast(error.message));
 });
 
+const imageInput = $('#report-form input[name="image"]');
+const uploadBox = $('#upload-box');
+
+async function analyzeSelectedImage(event) {
+  const file = event.target.files?.[0];
+  const status = $('#ai-draft-status');
+  const preview = $('#image-preview');
+  if (!file) {
+    preview.hidden = true;
+    preview.removeAttribute('src');
+    status.textContent = 'Waiting for a photo.';
+    return;
+  }
+  if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  const objectUrl = URL.createObjectURL(file);
+  preview.dataset.objectUrl = objectUrl;
+  preview.src = objectUrl;
+  preview.hidden = false;
+  status.textContent = 'Sarvam AI is analyzing the photo...';
+  const formData = new FormData();
+  formData.append('image', file);
+  try {
+    const result = await api('/api/v1/ai/describe', { method: 'POST', body: formData });
+    if (result.status === 'LOW_CONFIDENCE') {
+      status.textContent = 'AI draft has low confidence. Enter the item details manually.';
+      return;
+    }
+    if (result.status !== 'SUCCEEDED') {
+      status.textContent = 'AI is not enabled. Enter any missing details manually.';
+      return;
+    }
+    const form = $('#report-form');
+    const fillIfEmpty = (name, value) => {
+      const field = form.elements[name];
+      if (field && !field.value && value) field.value = value;
+    };
+    fillIfEmpty('title', result.short_description);
+    fillIfEmpty('category', result.item_category);
+    fillIfEmpty('colour', result.colour);
+    fillIfEmpty('condition', result.condition);
+    fillIfEmpty('brandOrIdentifyingText', result.brand_or_identifying_text);
+    fillIfEmpty('accessories', result.accessories?.join(', '));
+    fillIfEmpty('description', result.detailed_description || result.short_description);
+    fillIfEmpty('tags', result.search_keywords?.join(', '));
+    saveReportDraft();
+    status.textContent = `Draft ready for review${result.confidence !== undefined ? ` (${Math.round(result.confidence * 100)}% confidence)` : ''}.`;
+  } catch (error) {
+    status.textContent = 'AI could not analyze this photo. You can continue with manual details.';
+    showToast(error.message);
+  }
+}
+
+imageInput.addEventListener('change', analyzeSelectedImage);
+uploadBox.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  uploadBox.classList.add('drag-over');
+});
+uploadBox.addEventListener('dragleave', () => uploadBox.classList.remove('drag-over'));
+uploadBox.addEventListener('drop', (event) => {
+  event.preventDefault();
+  uploadBox.classList.remove('drag-over');
+  const file = event.dataTransfer.files?.[0];
+  if (!file) return;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  imageInput.files = transfer.files;
+  imageInput.dispatchEvent(new Event('change', { bubbles: true }));
+});
+uploadBox.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    imageInput.click();
+  }
+});
+
 $('#report-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const submit = event.target.querySelector('.submit-report');
@@ -325,6 +505,12 @@ $('#report-form').addEventListener('submit', async (event) => {
   try {
     const data = await api('/api/v1/reports', { method: 'POST', body: new FormData(event.target) });
     event.target.reset();
+    const preview = $('#image-preview');
+    if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+    preview.hidden = true;
+    preview.removeAttribute('src');
+    delete preview.dataset.objectUrl;
+    localStorage.removeItem(reportDraftKey);
     const matchMessage = data.potentialMatches?.length
       ? `${data.potentialMatches.length} potential found-item match(es) found automatically.`
       : 'No related active found-item reports were found.';
@@ -337,6 +523,9 @@ $('#report-form').addEventListener('submit', async (event) => {
     submit.innerHTML = 'Submit report <span class="material-symbols-outlined">arrow_forward</span>';
   }
 });
+
+$('#report-form').addEventListener('input', saveReportDraft);
+$('#report-form').addEventListener('change', saveReportDraft);
 
 document.addEventListener('click', (event) => {
   const link = event.target.closest('[data-route]');
@@ -367,4 +556,5 @@ async function restoreSession() {
 }
 
 window.addEventListener('popstate', renderRoute);
+restoreReportDraft();
 restoreSession();

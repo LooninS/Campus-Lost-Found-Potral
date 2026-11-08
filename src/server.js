@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const db = require('./db');
 const sarvamService = require('./services/sarvamService');
+const { redactSensitiveText } = require('./services/privacy');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
 const app = express();
@@ -33,9 +34,12 @@ const upload = multer({
 
 const reportSchema = z.object({
   reportType: z.enum(['LOST', 'FOUND']),
-  title: z.string().trim().min(2).max(120),
-  category: z.string().trim().min(2).max(60),
+  title: z.string().trim().max(120).optional().default(''),
+  category: z.string().trim().max(60).optional().default(''),
   description: z.string().trim().max(2000).optional().default(''),
+  brandOrIdentifyingText: z.string().trim().max(300).optional().default(''),
+  condition: z.string().trim().max(120).optional().default(''),
+  accessories: z.string().trim().max(500).optional().default(''),
   colour: z.string().trim().max(80).optional().default(''),
   locationText: z.string().trim().min(2).max(160),
   eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -124,7 +128,17 @@ function publicReport(row) {
     title: row.title,
     category: row.category,
     description: row.description,
+    brandOrIdentifyingText: row.brand_or_identifying_text || '',
+    condition: row.condition || '',
+    accessories: row.accessories ? JSON.parse(row.accessories) : [],
     aiDescription: row.ai_description,
+    aiDetails: {
+      detailedDescription: row.ai_detailed_description || '',
+      brandOrIdentifyingText: row.ai_brand_or_identifying_text || '',
+      condition: row.ai_condition || '',
+      accessories: row.ai_accessories ? JSON.parse(row.ai_accessories) : [],
+      responseMetadata: row.ai_response_metadata ? JSON.parse(row.ai_response_metadata) : null
+    },
     colour: row.colour,
     locationText: row.location_text,
     eventDate: row.event_date,
@@ -327,42 +341,95 @@ app.get('/api/v1/reports', (req, res) => {
   res.json({ results: rows.map(publicReport) });
 });
 
+app.post('/api/v1/ai/describe', requireAuth, upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'An item image is required.' });
+  try {
+    const result = await sarvamService.generateItemDescription(req.file);
+    res.json(result);
+  } catch (error) {
+    res.status(502).json({ error: 'Sarvam could not analyze this image. You can enter the details manually.' });
+  } finally {
+    fs.unlink(req.file.path, () => {});
+  }
+});
+
 app.post('/api/v1/reports', requireAuth, upload.single('image'), async (req, res) => {
   const parsed = reportSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Complete all required report fields correctly.', details: parsed.error.flatten() });
   if (!req.file) return res.status(400).json({ error: 'An item image is required.' });
 
   const data = parsed.data;
+  data.description = redactSensitiveText(data.description);
+  data.brandOrIdentifyingText = redactSensitiveText(data.brandOrIdentifyingText);
+  data.tags = data.tags.split(',').map((value) => redactSensitiveText(value)).join(',');
   const id = crypto.randomUUID();
   const timestamp = now();
   let aiStatus = process.env.AI_ENABLED === 'true' ? 'PENDING' : 'DISABLED';
   let aiDescription = null;
+  let aiDetailedDescription = null;
+  let aiBrandOrIdentifyingText = null;
+  let aiCondition = null;
+  let aiAccessories = [];
+  let aiResponseMetadata = null;
   let aiModel = null;
   let aiConfidence = null;
+  let aiTags = [];
 
   try {
     const ai = await sarvamService.generateItemDescription(req.file);
-    aiStatus = ai.status;
-    aiDescription = ai.short_description || null;
+    aiStatus = ai.status === 'SUCCEEDED' ? ai.status : 'FAILED';
+    aiResponseMetadata = {
+      model: ai.model || null,
+      latencyMs: ai.latencyMs ?? null,
+      confidence: ai.confidence ?? null
+    };
     aiModel = ai.model || null;
     aiConfidence = ai.confidence ?? null;
+    if (ai.status === 'SUCCEEDED') {
+      aiDescription = ai.short_description || null;
+      aiDetailedDescription = ai.detailed_description || null;
+      aiBrandOrIdentifyingText = ai.brand_or_identifying_text || null;
+      aiCondition = ai.condition || null;
+      aiAccessories = Array.isArray(ai.accessories) ? ai.accessories : [];
+      aiTags = Array.isArray(ai.search_keywords) ? ai.search_keywords : [];
+      if (!data.title) data.title = ai.short_description || 'Unidentified item';
+      if (!data.category) data.category = ai.item_category || 'Other';
+      if (!data.description) data.description = ai.detailed_description || ai.short_description || '';
+      if (!data.brandOrIdentifyingText) data.brandOrIdentifyingText = ai.brand_or_identifying_text || '';
+      if (!data.condition) data.condition = ai.condition || '';
+      if (!data.accessories) data.accessories = ai.accessories.join(', ');
+      if (!data.colour) data.colour = ai.colour || '';
+    }
   } catch {
     aiStatus = 'FAILED';
   }
+  if (!data.title) data.title = 'Unidentified item';
+  if (!data.category) data.category = 'Other';
 
   transaction(() => {
     db.prepare(`
       INSERT INTO reports
-      (id, reporter_id, report_type, title, category, description, ai_description, colour,
+      (id, reporter_id, report_type, title, category, description, brand_or_identifying_text,
+       condition, accessories, ai_description,
+       ai_detailed_description, ai_brand_or_identifying_text, ai_condition, ai_accessories,
+       ai_response_metadata, colour,
        location_text, event_date, approximate_time, custody_location, contact_preference,
        status, image_path, ai_status, ai_model, ai_confidence, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?)
     `).run(id, req.user.id, data.reportType, data.title, data.category, data.description,
-      aiDescription, data.colour, data.locationText, data.eventDate, data.approximateTime,
+      data.brandOrIdentifyingText, data.condition,
+      JSON.stringify(data.accessories.split(',').map((value) => value.trim()).filter(Boolean)),
+      aiDescription, aiDetailedDescription, aiBrandOrIdentifyingText, aiCondition,
+      JSON.stringify(aiAccessories), JSON.stringify(aiResponseMetadata), data.colour,
+      data.locationText, data.eventDate, data.approximateTime,
       data.custodyLocation, data.contactPreference, req.file.path, aiStatus, aiModel,
       aiConfidence, timestamp, timestamp);
 
-    for (const tag of data.tags.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)) {
+    const tags = [...new Set([
+      ...data.tags.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean),
+      ...aiTags.map((value) => String(value).trim().toLowerCase()).filter(Boolean)
+    ])];
+    for (const tag of tags) {
       db.prepare('INSERT INTO tags (report_id, tag, source) VALUES (?, ?, ?)')
         .run(id, tag, 'USER');
     }

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div id="toast" class="toast" role="status"></div>
     <header class="topbar">
       <a class="brand" href="/" data-route="/">
@@ -23,9 +24,13 @@
         <button id="admin-nav" class="nav-link" data-route="/admin" hidden>Admin desk</button>
       </nav>
       <div id="auth-actions" class="top-actions"></div>
+      <section id="notifications-panel" class="notifications-panel" aria-label="Notifications" hidden>
+        <div class="notifications-heading"><strong>Notifications</strong><button id="close-notifications" class="icon-button" aria-label="Close notifications"><span class="material-symbols-outlined">close</span></button></div>
+        <div id="notifications-list"></div>
+      </section>
     </header>
 
-    <main class="shell">
+    <main id="main-content" class="shell">
       <section id="landing-view" class="landing-view" hidden>
         <div class="landing-hero">
           <div>
@@ -103,11 +108,11 @@
             </article>
           </div>
           <form id="search-form" class="search-panel">
-            <div class="search-input"><span class="material-symbols-outlined">search</span><input name="q" placeholder="Search items, brands, colours, or keywords..." /><kbd>/</kbd></div>
-            <select name="type"><option value="">All reports</option><option value="LOST">Lost items</option><option value="FOUND">Found items</option></select>
-            <input name="category" placeholder="Category" />
-            <input name="location" placeholder="Location" />
-            <input name="colour" placeholder="Colour" />
+            <div class="search-input"><span class="material-symbols-outlined" aria-hidden="true">search</span><input name="q" aria-label="Search items" placeholder="Search items, brands, colours, or keywords..." /><kbd aria-hidden="true">/</kbd></div>
+            <select name="type" aria-label="Report type"><option value="">All reports</option><option value="LOST">Lost items</option><option value="FOUND">Found items</option></select>
+            <input name="category" aria-label="Category" placeholder="Category" />
+            <input name="location" aria-label="Location" placeholder="Location" />
+            <input name="colour" aria-label="Colour" placeholder="Colour" />
             <button class="button secondary-button" type="submit">Search</button>
           </form>
           <div class="results-heading"><h3>Latest reports</h3><span id="result-count" class="muted"></span></div>
@@ -121,26 +126,33 @@
             <div class="report-main">
               <div class="type-toggle"><label><input type="radio" name="reportType" value="LOST" checked /><span><b class="lost-dot"></b>I lost something</span></label><label><input type="radio" name="reportType" value="FOUND" /><span><b class="found-dot"></b>I found something</span></label></div>
               <div class="field-grid">
-                <label>Item title<input name="title" required placeholder="e.g. Blue water bottle" /></label>
-                <label>Category<input name="category" required placeholder="e.g. Water bottle" /></label>
+                <label>Item title<input name="title" placeholder="Filled from the photo" /></label>
+                <label>Category<input name="category" placeholder="Filled from the photo" /></label>
                 <label>Colour<input name="colour" placeholder="e.g. Navy blue" /></label>
+                <label>Condition<input name="condition" placeholder="Filled from the photo" /></label>
+                <label class="wide">Brand or identifying details<input name="brandOrIdentifyingText" placeholder="Brand, sticker, mark, or visible detail" /></label>
                 <label>Date<input name="eventDate" type="date" required /></label>
                 <label class="wide">Where was it lost or found?<input name="locationText" required placeholder="e.g. Library, 2nd floor" /></label>
-                <label>Approximate time<input name="approximateTime" placeholder="e.g. Around 2:30 PM" /></label>
+                <label>Approximate time<input name="approximateTime" required placeholder="e.g. Around 2:30 PM" /></label>
                 <label>Custody location<input name="custodyLocation" placeholder="For found items, if applicable" /></label>
               </div>
-              <label>Description<textarea name="description" rows="5" placeholder="Add identifying details, stickers, scratches, or anything else useful..."></textarea></label>
-              <label>Search tags<input name="tags" placeholder="blue, metal, black cap" /><small>Separate keywords with commas.</small></label>
-              <div class="upload-box"><span class="material-symbols-outlined">add_photo_alternate</span><div><strong>Upload a clear photo</strong><small>JPG or PNG · Max 8 MB</small></div><input name="image" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required /></div>
+              <label>Description<textarea name="description" rows="5" placeholder="Filled from the photo; you can edit it"></textarea></label>
+              <label>Accessories<input name="accessories" placeholder="e.g. strap, black cap, charger cable" /></label>
+              <label>Search tags<input name="tags" placeholder="Filled from the photo" /><small>Keywords are suggested from the photo and remain editable.</small></label>
+              <div class="upload-box" id="upload-box" role="button" tabindex="0" aria-label="Upload an item photo"><img id="image-preview" class="image-preview" alt="Selected item preview" hidden /><span class="material-symbols-outlined">add_photo_alternate</span><div><strong>Upload a clear photo</strong><small>JPG or PNG · Max 8 MB · Click or drop a file</small></div><input name="image" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required /></div>
               <button class="button primary-button submit-report" type="submit">Submit report <span class="material-symbols-outlined">arrow_forward</span></button>
             </div>
-            <aside class="ai-card"><div class="ai-card-icon"><span class="material-symbols-outlined">auto_awesome</span></div><p class="eyebrow">Sarvam AI assisted</p><h3>Make your report easier to find.</h3><p>When enabled, Sarvam AI reads your item photo and suggests a clear description and searchable tags. You always review the suggestion before it is published.</p><div class="ai-note"><span class="material-symbols-outlined">lock</span><span>Your personal details stay private.</span></div></aside>
+            <aside class="ai-card"><div class="ai-card-icon"><span class="material-symbols-outlined">auto_awesome</span></div><p class="eyebrow">Sarvam AI assisted</p><h3>Make your report easier to find.</h3><p>Upload a photo and Sarvam AI will draft the title, category, colour, description, and tags. You only need to confirm where and when it was lost or found.</p><p id="ai-draft-status" class="ai-draft-status" role="status">Waiting for a photo.</p><div class="ai-note"><span class="material-symbols-outlined">lock</span><span>Your personal details stay private.</span></div></aside>
           </form>
         </section>
 
         <section id="mine-view" class="view" hidden>
           <div class="section-title"><div><p class="eyebrow">Your activity</p><h2>My reports</h2><p>Track reports, matches, and the next step for every item.</p></div></div>
           <div id="mine-results" class="cards"></div>
+        </section>
+
+        <section id="item-view" class="view" hidden>
+          <div id="item-detail"></div>
         </section>
 
         <section id="admin-view" class="view" hidden>

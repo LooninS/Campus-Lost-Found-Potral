@@ -1,4 +1,5 @@
 const fs = require('node:fs/promises');
+const { sanitizeAiResult } = require('./privacy');
 
 const schema = {
   item_category: 'string',
@@ -41,6 +42,17 @@ function buildPrompt() {
   ].join(' ');
 }
 
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isRetryable(error) {
+  return error?.status === 429
+    || error?.status >= 500
+    || error?.name === 'AbortError'
+    || error?.name === 'TypeError';
+}
+
 class SarvamService {
   async generateItemDescription(image) {
     if (process.env.AI_ENABLED !== 'true') return { status: 'DISABLED' };
@@ -48,42 +60,58 @@ class SarvamService {
 
     const imageBytes = await fs.readFile(image.path);
     const mimeType = image.mimetype === 'image/png' ? 'image/png' : 'image/jpeg';
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Number(process.env.SARVAM_TIMEOUT_MS || 15000));
+    const maxRetries = Math.max(0, Math.min(3, Number(process.env.SARVAM_MAX_RETRIES || 2)));
+    const retryDelay = Math.max(0, Number(process.env.SARVAM_RETRY_DELAY_MS || 250));
     const started = Date.now();
+    const requestBody = {
+      model: process.env.SARVAM_MODEL || 'gemma4',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: buildPrompt() },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBytes.toString('base64')}` } }
+        ]
+      }],
+      temperature: 1,
+      top_p: 0.95,
+      max_tokens: 500
+    };
 
-    try {
-      const response = await fetch(process.env.SARVAM_CHAT_URL || 'https://api.sarvam.ai/v2/chat/completions', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'api-subscription-key': process.env.SARVAM_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), Number(process.env.SARVAM_TIMEOUT_MS || 15000));
+      try {
+        const response = await fetch(process.env.SARVAM_CHAT_URL || 'https://api.sarvam.ai/v2/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'api-subscription-key': process.env.SARVAM_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+        if (!response.ok) {
+          const error = new Error(`Sarvam request failed with HTTP ${response.status}.`);
+          error.status = response.status;
+          throw error;
+        }
+        const result = sanitizeAiResult(parseAiResponse(await response.json()));
+        const status = result.confidence < Number(process.env.SARVAM_MIN_CONFIDENCE || 0.35)
+          ? 'LOW_CONFIDENCE'
+          : 'SUCCEEDED';
+        return {
+          status,
           model: process.env.SARVAM_MODEL || 'gemma4',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'text', text: buildPrompt() },
-              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBytes.toString('base64')}` } }
-            ]
-          }],
-          temperature: 1,
-          top_p: 0.95,
-          max_tokens: 500
-        })
-      });
-      if (!response.ok) throw new Error(`Sarvam request failed with HTTP ${response.status}.`);
-      const result = parseAiResponse(await response.json());
-      return {
-        status: 'SUCCEEDED',
-        model: process.env.SARVAM_MODEL || 'gemma4',
-        latencyMs: Date.now() - started,
-        ...result
-      };
-    } finally {
-      clearTimeout(timeout);
+          latencyMs: Date.now() - started,
+          attempts: attempt + 1,
+          ...result
+        };
+      } catch (error) {
+        if (attempt === maxRetries || !isRetryable(error)) throw error;
+        await sleep(retryDelay * 2 ** attempt);
+      } finally {
+        clearTimeout(timeout);
+      }
     }
   }
 }

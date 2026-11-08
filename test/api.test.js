@@ -127,3 +127,30 @@ test('automatically matches a new lost report to an existing found report', asyn
   });
   assert.ok(notifications.body.results.some((item) => item.message.includes('Potential found-item match')));
 });
+
+test('allows image-first reports without manual title or category', async () => {
+  const registration = await json('/api/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ fullName: 'Image First User', email: `image-first-${Date.now()}@college.edu`, password: 'password123' })
+  });
+  const form = new FormData();
+  form.append('reportType', 'FOUND');
+  form.append('locationText', 'Student Centre');
+  form.append('eventDate', '2026-11-03');
+  form.append('approximateTime', 'Around noon');
+  form.append('brandOrIdentifyingText', 'Call 9876543210 if this is yours');
+  form.append('description', 'Found near the desk; owner@example.com may identify it');
+  form.append('image', new Blob(['image-first'], { type: 'image/png' }), 'item.png');
+
+  const response = await fetch(`${baseUrl}/api/v1/reports`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${registration.body.token}` },
+    body: form
+  });
+  const body = await response.json();
+  assert.equal(response.status, 201);
+  assert.equal(body.title, 'Unidentified item');
+  assert.equal(body.category, 'Other');
+  assert.match(body.brandOrIdentifyingText, /\[REDACTED_PHONE\]/);
+  assert.match(body.description, /\[REDACTED_EMAIL\]/);
+});

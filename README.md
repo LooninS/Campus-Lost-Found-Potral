@@ -10,10 +10,14 @@ Sarvam AI-assisted image-based item discovery system for a college or university
 - Optional seeded demonstration reports via `DEMO_DATA=true`
 - Lost and Found report creation
 - JPG/JPEG/PNG upload validation
-- Editable manual description and search tags
-- Search by text, report type, and category
+- Image-first report form: only report type, photo, location, date, and approximate time are required
+- Sarvam-assisted editable title, category, colour, description, identifying details, condition, accessories, and tags
+- Photo preview, drag-and-drop upload, local draft recovery, low-confidence fallback, bounded retries, and privacy redaction
+- Search by text, report type, category, location, and colour
+- Item-detail pages with status history and found-item claims
+- Notification center with unread state and mark-read actions
 - Report status transitions
-- SQLite prototype database with a schema aligned to the SRS
+- SQLite prototype database with backward-compatible schema migrations
 - Replaceable `SarvamService` abstraction
 - Validated Sarvam response parsing with timeout/error handling
 - Automated API, AI-parser, and lifecycle tests
@@ -41,7 +45,7 @@ npx vercel login
 npx vercel --prod
 ```
 
-Set `JWT_SECRET`, `COLLEGE_EMAIL_DOMAIN`, `DEMO_DATA`, and any Sarvam variables in the Vercel project settings. `DEMO_DATA=true` seeds six sample lost/found reports on an empty instance. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment because user accounts and uploads are not durable across serverless instances.
+Set `JWT_SECRET`, `COLLEGE_EMAIL_DOMAIN`, `ADMIN_EMAILS`, `ADMIN_PASSWORD`, `DEMO_DATA`, and any Sarvam variables in the Vercel project settings. When both admin variables are set, the configured administrator is bootstrapped on each serverless instance. `DEMO_DATA=true` seeds six sample lost/found reports on an empty instance. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment because ordinary user accounts and uploads are not durable across serverless instances.
 
 The default configuration uses manual-description mode so the application works without an API key. To enable the integration point:
 
@@ -50,9 +54,15 @@ AI_ENABLED=true
 SARVAM_API_KEY=your-key
 SARVAM_MODEL=gemma4
 SARVAM_CHAT_URL=https://api.sarvam.ai/v2/chat/completions
+SARVAM_TIMEOUT_MS=15000
+SARVAM_MAX_RETRIES=2
+SARVAM_RETRY_DELAY_MS=250
+SARVAM_MIN_CONFIDENCE=0.35
 ```
 
-The provider adapter is implemented in `src/services/sarvamService.js`. It uses Sarvam's V2 Chat Completions endpoint for `gemma4`, sends the required `api-subscription-key` header and base64 data URI, validates the JSON-like response, enforces a timeout, and fails safely back to manual descriptions. Gemma 4 does not provide native structured-output enforcement, so the application validates the model's prompted JSON response.
+The provider adapter is implemented in `src/services/sarvamService.js`. It uses Sarvam's V2 Chat Completions endpoint for `gemma4`, sends the required `api-subscription-key` header and base64 data URI, validates the JSON-like response, enforces a timeout, and fails safely back to manual descriptions. Gemma 4 does not provide native structured-output enforcement, so the application validates the model's prompted JSON response. Transient failures and timeouts use bounded exponential backoff (`SARVAM_MAX_RETRIES`, default `2`; `SARVAM_RETRY_DELAY_MS`, default `250` ms), while results below `SARVAM_MIN_CONFIDENCE` (default `0.35`) require manual review.
+
+AI-generated and manually edited public text redacts phone numbers, emails, roll/registration/student IDs, and long numeric identifiers. Contact details should be shared through the claim/admin workflow rather than public report descriptions.
 
 ## Project structure
 
@@ -65,16 +75,18 @@ src/services/         Replaceable Sarvam integration
 src/server.js         REST API and server entry point
 ```
 
-## Prototype limitations
+## Current prototype limitations
 
 - SQLite is used for easy semester-project setup; the schema can be migrated to PostgreSQL.
+- Vercel filesystem storage is temporary; a durable database and private object storage are required for production.
 - Email verification and password reset are not included yet.
-- Semantic embeddings and background AI jobs are planned next.
-- Notifications and claims have schema/API foundations but need their full UI workflow.
+- Sarvam Vision OCR is not yet integrated; current privacy protection covers Sarvam text output and user-edited fields.
+- Semantic embeddings/vector search and background AI jobs are not implemented yet; matching currently uses lexical/category/colour signals.
+- Admin moderation has core review actions but not bulk moderation or full audit-log browsing.
 
 ## Next implementation increments
 
-1. Replace the placeholder Sarvam adapter with the real structured JSON API call.
-2. Add integration tests for registration, uploads, AI failures, search, and status transitions.
-3. Add claims, notifications, administrator moderation, and statistics.
-4. Migrate from SQLite to PostgreSQL/`pgvector` when deployment requirements are finalized.
+1. Provision durable PostgreSQL/Turso storage and private object storage.
+2. Integrate Sarvam Vision OCR with consent-safe redaction and restricted evidence.
+3. Add embeddings/vector similarity and background AI processing.
+4. Expand admin moderation, observability, rate limiting, and end-to-end coverage.
