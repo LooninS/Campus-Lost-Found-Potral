@@ -15,6 +15,7 @@ const { requireAuth, requireAdmin } = require('./middleware/auth');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const jwtSecret = process.env.JWT_SECRET || 'development-secret';
+const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || (process.env.VERCEL ? '/tmp/campus-lost-found-uploads' : 'uploads'));
 fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -196,7 +197,7 @@ function publicReport(row) {
 }
 
 function signUser(user) {
-  return jwt.sign({ id: user.id, role: user.role, email: user.college_email }, jwtSecret, { expiresIn: '2h' });
+  return jwt.sign({ id: user.id, role: user.role, email: user.college_email }, jwtSecret, { expiresIn: jwtExpiresIn });
 }
 
 function adminEmails() {

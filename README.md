@@ -49,7 +49,7 @@ npx vercel login
 npx vercel --prod
 ```
 
-Set `JWT_SECRET`, `COLLEGE_EMAIL_DOMAIN`, `ADMIN_EMAILS`, `ADMIN_PASSWORD`, `DEMO_DATA`, and any Sarvam variables in the Vercel project settings. When both admin variables are set, the configured administrator is bootstrapped on each serverless instance. `DEMO_DATA=true` seeds six sample lost/found reports on an empty instance. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment because ordinary user accounts and uploads are not durable across serverless instances.
+Set `JWT_SECRET`, `JWT_EXPIRES_IN` (default `7d`), `COLLEGE_EMAIL_DOMAIN`, `ADMIN_EMAILS`, `ADMIN_PASSWORD`, `DEMO_DATA`, and any Sarvam variables in the Vercel project settings. When both admin variables are set, the configured administrator is bootstrapped on each serverless instance. `DEMO_DATA=true` seeds six sample lost/found reports on an empty instance. The current SQLite and local-upload prototype uses Vercel's temporary `/tmp` filesystem; use managed PostgreSQL and object storage before production deployment because ordinary user accounts and uploads are not durable across serverless instances.
 
 The default configuration uses manual-description mode so the application works without an API key. To enable the integration point:
 
